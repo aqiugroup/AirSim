@@ -300,6 +300,7 @@ private:
     // simulation time utility
     ros::Time airsim_timestamp_to_ros(const msr::airlib::TTimePoint& stamp) const;
     ros::Time chrono_timestamp_to_ros(const std::chrono::system_clock::time_point& stamp) const;
+    ros::Time chrono_timestamp_to_ros(const std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>& stamp) const;
 
     // Utility methods to convert airsim_client_
     msr::airlib::MultirotorRpcLibClient* get_multirotor_client();
