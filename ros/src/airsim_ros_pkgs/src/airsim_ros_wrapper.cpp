@@ -925,11 +925,21 @@ ros::Time AirsimROSWrapper::chrono_timestamp_to_ros(const std::chrono::system_cl
     return cur_time;
 }
 
+ros::Time AirsimROSWrapper::chrono_timestamp_to_ros(const std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>& stamp) const
+{
+    auto dur = std::chrono::duration<double>(stamp.time_since_epoch());
+    ros::Time cur_time;
+    cur_time.fromSec(dur.count());
+    return cur_time;
+}
+
 ros::Time AirsimROSWrapper::airsim_timestamp_to_ros(const msr::airlib::TTimePoint& stamp) const
 {
     // airsim appears to use chrono::system_clock with nanosecond precision
     std::chrono::nanoseconds dur(stamp);
-    std::chrono::time_point<std::chrono::system_clock> tp(dur);
+    // std::chrono::time_point<std::chrono::system_clock> tp(dur);
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds> tp{dur};
+
     ros::Time cur_time = chrono_timestamp_to_ros(tp);
     return cur_time;
 }
