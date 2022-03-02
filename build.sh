@@ -53,7 +53,7 @@ if $debug; then
     build_dir=build_debug
 else
     build_dir=build_release
-fi 
+fi
 if [ "$(uname)" == "Darwin" ]; then
     # llvm v8 is too old for Big Sur see
     # https://github.com/microsoft/AirSim/issues/3691
@@ -62,6 +62,8 @@ if [ "$(uname)" == "Darwin" ]; then
     #now pick up whatever setup.sh installs
     export CC="$(brew --prefix)/opt/llvm/bin/clang"
     export CXX="$(brew --prefix)/opt/llvm/bin/clang++"
+    # export CC=/Users/aqiu/anaconda3/envs/airsim/envs/ros_py38/bin/clang
+    # export CXX=/Users/aqiu/anaconda3/envs/airsim/envs/ros_py38/bin/clang++
 else
     if $gcc; then
         export CC="gcc-8"
