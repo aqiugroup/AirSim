@@ -330,7 +330,11 @@ private:
     msr::airlib::GeoPoint origin_geo_point_; // gps coord of unreal origin
     airsim_ros_pkgs::GPSYaw origin_geo_point_msg_; // todo duplicate
 
-    AirSimSettingsParser airsim_settings_parser_;
+    std::string settings_text_;
+    bool  getSettingsTexts(std::string& settings_text) const;
+    std::string getSimMode();
+    // AirSimSettingsParser airsim_settings_parser_;
+
     std::unordered_map<std::string, std::unique_ptr<VehicleROS>> vehicle_name_ptr_map_;
     static const std::unordered_map<int, std::string> image_type_int_to_string_map_;
 
