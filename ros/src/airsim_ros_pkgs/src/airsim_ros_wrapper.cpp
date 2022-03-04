@@ -25,6 +25,20 @@ const std::unordered_map<int, std::string> AirsimROSWrapper::image_type_int_to_s
     { 7, "Infrared" }
 };
 
+bool  AirsimROSWrapper::getSettingsTexts(std::string& settings_text) const
+{
+    msr::airlib::RpcLibClientBase airsim_client(host_ip_);
+    airsim_client.confirmConnection();
+    settings_text = airsim_client.getSettingsString();
+    return !settings_text.empty();
+}
+
+std::string AirsimROSWrapper::getSimMode()
+{
+    Settings& settings_json = Settings::loadJSonString(settings_text_);
+    return settings_json.getString("SimMode", "");
+}
+
 AirsimROSWrapper::AirsimROSWrapper(const ros::NodeHandle& nh, const ros::NodeHandle& nh_private, const std::string& host_ip)
     : img_async_spinner_(1, &img_timer_cb_queue_) // a thread for image callbacks to be 'spun' by img_async_spinner_
     , lidar_async_spinner_(1, &lidar_timer_cb_queue_) // same as above, but for lidar
@@ -33,13 +47,28 @@ AirsimROSWrapper::AirsimROSWrapper(const ros::NodeHandle& nh, const ros::NodeHan
     , nh_(nh)
     , nh_private_(nh_private)
     , host_ip_(host_ip)
-    , airsim_settings_parser_(host_ip)
+    // , airsim_settings_parser_(host_ip)
     , airsim_client_images_(host_ip)
     , airsim_client_lidar_(host_ip)
     , has_gimbal_cmd_(false)
     , tf_listener_(tf_buffer_)
 {
+
+    if (getSettingsTexts(settings_text_)) {
+        // std::cout << "AirSimSettingsParser::initializeSettings: " << settings_text_.c_str() << std::endl;
+        AirSimSettings::initializeSettings(settings_text_);
+        AirSimSettings::singleton().load(std::bind(&AirsimROSWrapper::getSimMode, this));
+        // std::cout << "SimMode: " << AirSimSettings::singleton().simmode_name << std::endl;
+    } else {
+        std::cout << "not fet config : not open simulation environment ???" << std::endl;
+        return;
+    }
+
+
     ros_clock_.clock.fromSec(0);
+    std::cout << "AirsimROSWrapper SimMode1: " << msr::airlib::AirSimSettings::singleton().simmode_name.c_str()  <<"\n"<< std::endl;
+    std::cout << "AirsimROSWrapper SimMode2: " << AirSimSettings::singleton().simmode_name.c_str()  <<"\n"<< std::endl;
+    std::cout << "what the hell" << std::endl;
 
     if (AirSimSettings::singleton().simmode_name != AirSimSettings::kSimModeTypeCar) {
         airsim_mode_ = AIRSIM_MODE::DRONE;
@@ -52,7 +81,7 @@ AirsimROSWrapper::AirsimROSWrapper(const ros::NodeHandle& nh, const ros::NodeHan
 
     initialize_ros();
 
-    std::cout << "AirsimROSWrapper Initialized!\n";
+    std::cout << "AirsimROSWrapper Initialized!\n" << std::endl;
 }
 
 void AirsimROSWrapper::initialize_airsim()
@@ -103,6 +132,7 @@ void AirsimROSWrapper::initialize_ros()
     // todo enforce dynamics constraints in this node as well?
     // nh_.getParam("max_vert_vel_", max_vert_vel_);
     // nh_.getParam("max_horz_vel", max_horz_vel_)
+    ROS_INFO("world_frame_id: %s, odom_frame_id: %s, isENU_:%d ", world_frame_id_.c_str(), odom_frame_id_.c_str(), isENU_);
 
     create_ros_pubs_from_settings_json();
     airsim_control_update_timer_ = nh_private_.createTimer(ros::Duration(update_airsim_control_every_n_sec), &AirsimROSWrapper::drone_state_timer_cb, this);
@@ -959,6 +989,7 @@ void AirsimROSWrapper::drone_state_timer_cb(const ros::TimerEvent& event)
     try {
         // todo this is global origin
         origin_geo_point_pub_.publish(origin_geo_point_msg_);
+        // ROS_INFO("origin  %lf, %lf, %lf, %lf", origin_geo_point_msg_.latitude,origin_geo_point_msg_.longitude,origin_geo_point_msg_.altitude,origin_geo_point_msg_.yaw);
 
         // get the basic vehicle pose and environmental state
         const auto now = update_state();

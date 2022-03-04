@@ -422,18 +422,23 @@ namespace airlib
         static AirSimSettings& singleton()
         {
             static AirSimSettings instance;
+            // std::cout <<  "simmode_name2 " << instance.simmode_name.c_str() << std::endl;
             return instance;
         }
 
         AirSimSettings()
         {
+            // std::cout <<  "simmode_name1.1 " << simmode_name.c_str() << std::endl;
             initializeSubwindowSettings(subwindow_settings);
             initializePawnPaths(pawn_paths);
+            // std::cout <<  "simmode_name1.2 " << simmode_name.c_str() << std::endl;
         }
 
         //returns number of warnings
         void load(std::function<std::string(void)> simmode_getter)
         {
+            // std::cout <<  "simmode_name1.3 " << simmode_name.c_str() <<"\n"<< std::endl;
+            // std::cout <<  "simmode_name1.4 " << singleton().simmode_name.c_str() <<"\n"<< std::endl;
             warning_messages.clear();
             error_messages.clear();
             const Settings& settings_json = Settings::singleton();
@@ -455,6 +460,8 @@ namespace airlib
             //this should be done last because it depends on vehicles (and/or their type) we have
             loadRecordingSetting(settings_json);
             loadClockSettings(settings_json);
+            // std::cout <<  "simmode_name1.5 " << simmode_name.c_str() <<"\n"<< std::endl;
+            // std::cout <<  "simmode_name1.6 " << singleton().simmode_name.c_str() <<"\n"<< std::endl;
         }
 
         static void initializeSettings(const std::string& json_settings_text)
@@ -589,12 +596,16 @@ namespace airlib
         {
             //get the simmode from user if not specified
             simmode_name = settings_json.getString("SimMode", "");
+            std::cout << "json-simmode_name: " << simmode_name.c_str() << std::endl;
+
             if (simmode_name == "") {
                 if (simmode_getter)
                     simmode_name = simmode_getter();
                 else
                     throw std::invalid_argument("simmode_name is not expected empty in SimModeBase");
             }
+
+            std::cout << "json-simmode_name1: " << simmode_name.c_str() << std::endl;
 
             physics_engine_name = settings_json.getString("PhysicsEngineName", "");
             if (physics_engine_name == "") {

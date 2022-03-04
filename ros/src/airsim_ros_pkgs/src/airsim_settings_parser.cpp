@@ -4,6 +4,7 @@ AirSimSettingsParser::AirSimSettingsParser(const std::string& host_ip)
     : host_ip_(host_ip)
 {
     success_ = initializeSettings();
+    //  std::cout << "SimMode2: " << AirSimSettings::singleton().simmode_name.c_str() << std::endl;
 }
 
 bool AirSimSettingsParser::success()
@@ -31,10 +32,11 @@ std::string AirSimSettingsParser::getSimMode()
 bool AirSimSettingsParser::initializeSettings()
 {
     if (getSettingsText(settings_text_)) {
+        // std::cout << "AirSimSettingsParser::initializeSettings: " << settings_text_.c_str() << std::endl;
         AirSimSettings::initializeSettings(settings_text_);
 
         AirSimSettings::singleton().load(std::bind(&AirSimSettingsParser::getSimMode, this));
-        std::cout << "SimMode: " << AirSimSettings::singleton().simmode_name << std::endl;
+        // std::cout << "SimMode: " << AirSimSettings::singleton().simmode_name << std::endl;
 
         return true;
     }
