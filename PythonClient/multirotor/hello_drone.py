@@ -7,6 +7,8 @@ import tempfile
 import pprint
 import cv2
 
+from decimal import *
+
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
 client.confirmConnection()
@@ -15,6 +17,21 @@ client.enableApiControl(True)
 state = client.getMultirotorState()
 s = pprint.pformat(state)
 print("state: %s" % s)
+
+# prefix="/Users/aqiu/Documents/AirSim"
+# state = client.getMultirotorState(vehicle_name = robot_name)
+# gt_name = prefix + '/groundtruth/data.tum'
+# gt_writer = open(gt_name, 'a')
+# gt_writer.write(
+#     str(Decimal(state.timestamp) / Decimal(1e9)) + ' ' +
+#     str(state.kinematics_estimated.position.x_val) + ' ' +
+#     str(state.kinematics_estimated.position.y_val) + ' ' +
+#     str(state.kinematics_estimated.position.z_val) + ' ' +
+#     str(state.kinematics_estimated.orientation.x_val) + ' ' +
+#     str(state.kinematics_estimated.orientation.y_val) + ' ' +
+#     str(state.kinematics_estimated.orientation.z_val) + ' ' +
+#     str(state.kinematics_estimated.orientation.w_val) + '\n'
+# )
 
 imu_data = client.getImuData()
 s = pprint.pformat(imu_data)
