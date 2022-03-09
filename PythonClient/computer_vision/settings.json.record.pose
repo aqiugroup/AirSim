@@ -1,0 +1,38 @@
+{
+  "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ViewMode": "NoDisplay",
+  "PhysicsEngineName": "FastPhysicsEngine",
+  "ClockType": "SteppableClock",
+  "ClockSpeed": 0.3,
+  "Wind": { "X": 0, "Y": 0, "Z": 0 },
+  "Vehicles": {
+    "SimpleFlight": {
+      "VehicleType": "SimpleFlight",
+      "DefaultVehicleState": "Armed",
+      "AutoCreate": true,
+      "PawnPath": "",
+      "EnableCollisionPassthrogh": true,
+      "EnableCollisions": true,
+      "AllowAPIAlways": true,
+      "EnableTrace": false,
+      "Sensors": {
+        "imu_1": {
+          "SensorType": 2,
+          "Enabled": true
+        }
+      },
+    "X": 0, "Y": 0, "Z": -0.0,
+    "Pitch": 0, "Roll": 0, "Yaw": 0
+    }
+  },
+  "Recording": {
+    "RecordOnMove": true,
+    "RecordInterval": 0.1,
+    "Folder": "",
+    "Enabled": false,
+    "Cameras": [
+    ]
+  }
+}
