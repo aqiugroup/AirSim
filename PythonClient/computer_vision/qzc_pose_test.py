@@ -414,7 +414,6 @@ def transform_msg_from_csv(path_to_csv, child_frame_id, frame_id):
         tf_array.append(tf_msg)
     return tf_array
 
-#  !!!!!!!!!!! not ok !!!!!!!!!
 def transform_msg_from_txt(path_to_airsim_txt, child_frame_id, frame_id):
     tf_array = []
 
@@ -427,7 +426,7 @@ def transform_msg_from_txt(path_to_airsim_txt, child_frame_id, frame_id):
         timestamp = float(parts[1]) / 1000.0 # s
 
         x = float(parts[2])
-        y = float(parts[3])
+        y =float( parts[3])
         z = float(parts[4])
 
         qw = float(parts[5])
@@ -462,6 +461,8 @@ def transform_msg_from_txt(path_to_airsim_txt, child_frame_id, frame_id):
 def transform_msg_from_txt2(path_to_airsim_txt, child_frame_id, frame_id):
     tf_array = []
 
+    out_txt = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec_tiny_out.txt"
+    fout = open(out_txt, "w")
     fin = open(path_to_airsim_txt, "r")
     line = fin.readline().strip()
     line = fin.readline().strip()
@@ -471,7 +472,7 @@ def transform_msg_from_txt2(path_to_airsim_txt, child_frame_id, frame_id):
         timestamp = float(parts[1]) / 1000.0 # s
 
         x = float(parts[2])
-        y = float(parts[3])
+        y =float( parts[3])
         z = float(parts[4])
 
         qw = float(parts[5])
@@ -500,16 +501,20 @@ def transform_msg_from_txt2(path_to_airsim_txt, child_frame_id, frame_id):
                 [ 0,  0,  0,  1]
             ])
         F = R.T @ T @ C
-
-        # print(F)
-        F=np.linalg.inv(F)
-        # print(F)
-
         F_T = F[:, 3]
         F_R = F[:3, :3]
         R1 = Rotation.from_matrix(F_R)
         F_Q = R1.as_quat()
+
+        F_R = o3d.geometry.get_rotation_matrix_from_quaternion((F_Q[3], F_Q[0], F_Q[1], F_Q[2])) # TODO:(qzc) (qw,qx,qy,qz) ?
         # === Create the transformation matrix ===
+
+        # out_str =  parts[1] + " " + str(F_T[0])+ " " + str(F_T[1])+ " " + str(F_T[2]) + " " + str(F_Q[3]) + " " + str(F_Q[0]) + " " + str(F_Q[1]) + " " + str(F_Q[2])
+        out_str =  parts[1] + " " + str(F_T[0])+ " " + str(F_T[1])+ " " + str(F_T[2]) + "           " \
+        + " " + str(F_R[0, 0])+ " " + str(F_R[1, 0])+ " " + str(F_R[2, 0])\
+        + " " + str(F_R[0, 1])+ " " + str(F_R[1, 1])+ " " + str(F_R[2, 1])\
+        + " " + str(F_R[0, 2])+ " " + str(F_R[1, 2])+ " " + str(F_R[2, 2])
+        fout.writelines(out_str+"\n")                 #将字符串写入文件中
 
         tf_msg = tf2_msgs.msg.TFMessage()
         tf_stamped = geometry_msgs.msg.TransformStamped()
@@ -597,11 +602,11 @@ def parser():
     in_imu_data = "imu_data.xlsx"
     calib_file = "lidar_cam_imu_calib_test_car_v0.0.2.yaml"
     downsample = True
-    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_pose_full_ok_2022030903.bag"
+    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_pose_tiny_20220310.bag"
     # out_bag = "/media/qiuzc/Document/4_data/kimera_data/true_data/indoor/2021-11-02-12-08-40_test.bag"
 
     # for tf
-    vio_pose_csv = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec.txt"
+    vio_pose_csv = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec_tiny.txt"
     vio_topic = "/local/odometry"
     world_frame_id = "world"
     body_frame_id = "imu_baselink"  # same as imu_frame_id
@@ -716,18 +721,18 @@ if __name__ == "__main__":
 
     stereo_left_msgs = StereoImageDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/0",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir2/0",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/0",
         args.left_image_topic, args.left_image_frame_id)
 
     stereo_depth_msgs = StereoDepthDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/1",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir2/1",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/1",
         args.left_depth_topic, args.left_depth_frame_id)
 
     # semantic_rgb_msgs = SemanticLabelWithRGBDirMessages(
     semantic_rgb_msgs = SemanticLabelDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir2/2",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/2",
         args.left_semantic_topic, args.left_semantic_frame_id)
 
     tf_array_vio = transform_msg_from_txt2(args.vio_pose_csv, args.body_frame_id, args.world_frame_id)
@@ -753,19 +758,19 @@ if __name__ == "__main__":
             if skip_cnt > 10:
                 break
 
-            odometry_msg = generate_odometry_msg(vio_pose_msg, args.body_frame_id, args.world_frame_id)
-            outbag.write(args.vio_topic, odometry_msg, vio_timestamp)
+            # odometry_msg = generate_odometry_msg(vio_pose_msg, args.body_frame_id, args.world_frame_id)
+            # outbag.write(args.vio_topic, odometry_msg, vio_timestamp)
 
-            for local_msgs in [semantic_rgb_msgs, stereo_depth_msgs, stereo_left_msgs,]:
-                ret = local_msgs.check_match_airsim(vio_timestamp.secs, vio_timestamp.nsecs) # ns to ms
-                # ret = local_msgs.check_match(vio_timestamp.secs, vio_timestamp.nsecs)
-                if not ret is None:
-                    topic, msg = ret
-                    outbag.write(topic, msg, vio_timestamp)
+            # for local_msgs in [semantic_rgb_msgs, stereo_depth_msgs, stereo_left_msgs,]:
+            #     ret = local_msgs.check_match_airsim(vio_timestamp.secs, vio_timestamp.nsecs) # ns to ms
+            #     # ret = local_msgs.check_match(vio_timestamp.secs, vio_timestamp.nsecs)
+            #     if not ret is None:
+            #         topic, msg = ret
+            #         outbag.write(topic, msg, vio_timestamp)
 
-                else:
-                    skip_cnt=skip_cnt+1
-                    print("not find {}.{} ".format(vio_timestamp.secs, vio_timestamp.nsecs))
+            #     else:
+            #         skip_cnt=skip_cnt+1
+            #         print("not find {}.{} ".format(vio_timestamp.secs, vio_timestamp.nsecs))
 
 
             percent = (i - start_time) / duration
