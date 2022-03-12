@@ -415,7 +415,7 @@ if __name__ == '__main__':
 
         # print_pose(client)
 
-        time.sleep(3)
+        # time.sleep(1)
 
         line = fin.readline().strip()
 
