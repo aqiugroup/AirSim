@@ -3,6 +3,9 @@
 #
 #
 ros_qzc
+PythonClient/computer_vision/qzc_merge_ws/devel
+PythonClient/computer_vision/qzc_merge_ws/logs
+PythonClient/computer_vision/qzc_merge_ws/.catkin_tools
 
 *.DS_Store
 # User-specific files
