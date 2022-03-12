@@ -403,7 +403,17 @@ class BoundingBoxDirMessages:
         msg =  Perception()
         df = pd.read_csv(filename, sep='\s+')
         for frame in (range(0, df.shape[0], 1)):
-            max_x, max_y, min_x, min_y, name, label = df.iloc[frame][['box2D.max.x_val', 'box2D.max.y_val', 'box2D.min.x_val', 'box2D.min.y_val', 'name', 'label']]
+            max_x, max_y, min_x, min_y, name, label, max_x_3d, max_y_3d, max_z_3d, min_x_3d, min_y_3d, min_z_3d, qw, qx, qy, qz, x, y, z \
+            = df.iloc[frame][[
+                'box2D.max.x_val', 'box2D.max.y_val',
+                'box2D.min.x_val', 'box2D.min.y_val',
+                'name',
+                'label',
+                'box3D.max.x_val', 'box3D.max.y_val', 'box3D.max.z_val',
+                'box3D.min.x_val', 'box3D.min.y_val', 'box3D.min.z_val',
+                'relative_pose.orientation.w_val', 'relative_pose.orientation.x_val', 'relative_pose.orientation.y_val', 'relative_pose.orientation.z_val',
+                'relative_pose.position.x_val','relative_pose.position.y_val','relative_pose.position.z_val',
+            ]]
             obj_3d = Object_3D()
             if name in self.bbs:
                 obj_3d.id = self.bbs[name][1]
@@ -418,6 +428,22 @@ class BoundingBoxDirMessages:
             obj_3d.bbox_2d.center.theta = 0
             obj_3d.bbox_2d.size_x = (max_x-min_x)/2
             obj_3d.bbox_2d.size_y =  (max_y-min_y)/2
+
+            # obj_3d.bbox_3d.center.position.x =(max_x_3d+min_x_3d)/2
+            # obj_3d.bbox_3d.center.position.y =(max_y_3d+min_y_3d)/2
+            # obj_3d.bbox_3d.center.position.z =(max_z_3d+min_z_3d)/2
+            obj_3d.bbox_3d.center.position.x =x
+            obj_3d.bbox_3d.center.position.y =y
+            obj_3d.bbox_3d.center.position.z =z
+
+            obj_3d.bbox_3d.center.orientation.w = qw
+            obj_3d.bbox_3d.center.orientation.x = qx
+            obj_3d.bbox_3d.center.orientation.y = qy
+            obj_3d.bbox_3d.center.orientation.z = qz
+
+            obj_3d.bbox_3d.size.x =(max_x_3d-min_x_3d)/2
+            obj_3d.bbox_3d.size.y =(max_y_3d-min_y_3d)/2
+            obj_3d.bbox_3d.size.z =(max_z_3d-min_z_3d)/2
 
             msg.obj_3d.append(obj_3d)
 
@@ -705,9 +731,8 @@ def parser():
     in_imu_data = "imu_data.xlsx"
     calib_file = "lidar_cam_imu_calib_test_car_v0.0.2.yaml"
     downsample = True
-    # out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_bb_full_ok_2022031001.bag"
-    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_bb_small_ok_2022031001.bag"
-    # out_bag = "/media/qiuzc/Document/4_data/kimera_data/true_data/indoor/2021-11-02-12-08-40_test.bag"
+    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_ok_2022031001.bag"
+    # out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_bb_small_ok_2022031001.bag"
 
     # for tf
     vio_pose_csv = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec.txt"
@@ -831,24 +856,24 @@ if __name__ == "__main__":
     #     args.right_image_topic, args.right_image_frame_id)
 
     stereo_left_msgs = StereoImageDirMessages(
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/0",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/0",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/0",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/0",
         args.left_image_topic, args.left_image_frame_id)
 
     stereo_depth_msgs = StereoDepthDirMessages(
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/1",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/1",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/1",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/1",
         args.left_depth_topic, args.left_depth_frame_id)
 
     # semantic_rgb_msgs = SemanticLabelWithRGBDirMessages(
     semantic_rgb_msgs = SemanticLabelDirMessages(
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
         args.left_semantic_topic, args.left_semantic_frame_id)
 
     bb_msgs = BoundingBoxDirMessages(
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/3",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/3",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/3",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/3",
         args.left_perception_topic, args.left_perception_frame_id)
 
     tf_array_vio = transform_msg_from_txt2(args.vio_pose_csv, args.body_frame_id, args.world_frame_id)

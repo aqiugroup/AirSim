@@ -20,7 +20,8 @@ DELAY = 0.01 # must be > 0
 # around which you want the bounding boxes).
 REGEX_OBJECTS_OF_INTEREST = [
     "Landscape[\w]*",
-    "prp_trafficLight_Blueprint[\w]*",
+    # "prp_trafficLight_Blueprint[\w]*",
+    "prp_streetLight_Blueprint[\w]*",
     "prp_manhole[\w]*",
     "prp_light[\w]*",
     "prp_garbageCan[\w]*",
@@ -62,7 +63,8 @@ REGEX_OBJECTS_OF_INTEREST = [
 # for detection, not support [\w]* ??
 REGEX_OBJECTS_OF_DETECTION_INTEREST = [
     "Landscape*",
-    "prp_trafficLight_Blueprint*",
+    # "prp_trafficLight_Blueprint*",
+    "prp_streetLight_Blueprint*",
     "prp_manhole*",
     "prp_light*",
     "prp_garbageCan*",
@@ -104,7 +106,8 @@ REGEX_OBJECTS_OF_DETECTION_INTEREST = [
 # Classes corresponding to the objects in the REGEX_OBJECTS_OF_INTEREST list above.
 OBJECT_OF_INTEREST_CLASSES = [
     "ground",
-    "trafficLight",
+    # "trafficLight",
+    "streetLight",
     "manhole",
     "fixLight",
     "garbageCan",
