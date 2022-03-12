@@ -13,9 +13,12 @@ camera_name = "0"
 image_type = airsim.ImageType.Scene
 
 # set detection radius in [cm]
-client.simSetDetectionFilterRadius(camera_name, image_type, 200 * 100)
+client.simSetDetectionFilterRadius(camera_name, image_type, 30 * 100)
 # add desired object name to detect in wild card/regex format
-client.simAddDetectionFilterMeshName(camera_name, image_type, "prp_pylong_Sml14*")
+client.simAddDetectionFilterMeshName(camera_name, image_type, "prp_pylong_Sml*")
+client.simAddDetectionFilterMeshName(camera_name, image_type, "prp_cementBarrier*")
+
+
 
 
 while True:
@@ -39,5 +42,5 @@ while True:
     elif cv2.waitKey(1) & 0xFF == ord('c'):
         client.simClearDetectionMeshNames(camera_name, image_type)
     elif cv2.waitKey(1) & 0xFF == ord('a'):
-        client.simAddDetectionFilterMeshName(camera_name, image_type, "Cylinder*")
+        client.simAddDetectionFilterMeshName(camera_name, image_type, "prp_pylon_Lrg*")
 cv2.destroyAllWindows()

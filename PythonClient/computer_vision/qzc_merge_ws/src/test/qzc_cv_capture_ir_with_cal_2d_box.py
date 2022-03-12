@@ -1,7 +1,7 @@
 # In settings.json first activate computer vision mode:
 # https://github.com/Microsoft/AirSim/blob/master/docs/image_apis.md#computer-vision-mode
 
-import setup_path
+# import setup_path
 import airsim
 
 import pprint
@@ -232,7 +232,7 @@ if __name__ == '__main__':
                 print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_uint8), pprint.pformat(response.camera_position)))
                 airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(i), str(timestamp) + "_" + str(i) + '.png')), response.image_data_uint8)
 
-                if i == 2 or i == 3:
+                if  i == 3:
                     im = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
                     im = im.reshape(response.height, response.width, 3)           # reshape array to 4 channel image
                     # im = np.flipud(im)                                            # original image is flipped vertically
@@ -287,7 +287,7 @@ if __name__ == '__main__':
                         # boxedTrue = draw_bbs_on_image(trueIm, bbs)
                         boxedSeg =  draw_bbs_on_image(im, bbs)
 
-                        cv2.imshow('infrared:2, seg:3, i:'+str(i), im)
+                        cv2.imshow('infrared:2, seg:3, i:'+str(i), boxedSeg)
                         cv2.waitKey(int(DELAY * 1000))
                         cv2.destroyAllWindows()
 

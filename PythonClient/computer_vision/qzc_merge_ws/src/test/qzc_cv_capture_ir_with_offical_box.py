@@ -1,7 +1,7 @@
 # In settings.json first activate computer vision mode:
 # https://github.com/Microsoft/AirSim/blob/master/docs/image_apis.md#computer-vision-mode
 
-import setup_path
+# import setup_path
 import airsim
 
 import pprint
@@ -57,6 +57,48 @@ REGEX_OBJECTS_OF_INTEREST = [
     "prp_cementBarrier[\w]*",
     "flg_fern[\w]*",
     "prp_flag[\w]*"
+]
+
+# for detection, not support [\w]* ??
+REGEX_OBJECTS_OF_DETECTION_INTEREST = [
+    "Landscape*",
+    "prp_trafficLight_Blueprint*",
+    "prp_manhole*",
+    "prp_light*",
+    "prp_garbageCan*",
+    "prp_bench*",
+    "prp_fireHydrant*",
+    "prp_chair*",
+    "prp_table*",
+    "CameraActor*",
+    "prp_sewerGrate*",
+    "prp_tableUmbrella*",
+    "prp_electricalBox*",
+    "Awning_mdl*",
+    "PowerLine*",
+    "prp_crosswalkSign*",
+    "Building*",
+    "prp_metalPillar*",
+    "flg_tree*",
+
+
+    "prp_chainlinkFence*",
+    "prp_tarp*",
+    "prp_vent*",
+    "door_A*",
+    "prp_ac*",
+    "StoreSign*",
+    "prp_pylong_Sml*",
+    "flg_grass*",
+    "prp_parkingMeter*",
+    "Flg_hedge_Short*",
+    "prp_metalFence*",
+    "prp_barrier_Lrg*",
+    "TrashBag*",
+    "prp_potSquare*",
+    "prp_cementBarrier*",
+    "flg_fern*",
+    "prp_flag*"
 ]
 
 # Classes corresponding to the objects in the REGEX_OBJECTS_OF_INTEREST list above.
@@ -155,6 +197,9 @@ MESH_COLS = np.array([
 
 client = None
 
+# set camera name and image type to request images and detections
+detect_camera_name = "0"
+detect_image_type = airsim.ImageType.Scene
 def setup():
     # Clear background
     msg = 'Setting everything to ID 255 (to clear unwanted objects)...'
@@ -168,6 +213,17 @@ def setup():
         print(msg, end='')
         found = client.simSetSegmentationObjectID(key, val, True);
         print(' ' * (40 - len(msg)) + ('[SUCCESS]' if found else '[FAILED!]'))
+
+    # set 2d/3d detection
+    # set detection radius in [cm]
+    client.simSetDetectionFilterRadius(detect_camera_name, detect_image_type, 30 * 100) # 30m
+    # add desired object name to detect in wild card/regex format
+    for key, val in zip(REGEX_OBJECTS_OF_DETECTION_INTEREST, range(len(REGEX_OBJECTS_OF_DETECTION_INTEREST))):
+        msg = 'Detection: add mesh name--> %s ..' % (key)
+        print(msg, end='\n')
+        client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
+    # client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, "prp_pylong_Sml*")
+    # client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, "prp_cementBarrier*")
 
 
 if __name__ == '__main__':
@@ -218,11 +274,14 @@ if __name__ == '__main__':
         time.sleep(0.1)
 
         responses = client.simGetImages([
-        airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),
+        airsim.ImageRequest("0", airsim.ImageType.Scene, False, True),
         airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
-        airsim.ImageRequest("0", airsim.ImageType.Infrared,False, False),
-        airsim.ImageRequest("0", airsim.ImageType.Segmentation,False, False)]
-        )
+        airsim.ImageRequest("0", airsim.ImageType.Infrared,False, True),
+        # airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),
+        # airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
+        # airsim.ImageRequest("0", airsim.ImageType.Infrared,False, False),
+        # airsim.ImageRequest("0", airsim.ImageType.Segmentation,False, False)
+        ])
 
         for i, response in enumerate(responses):
             if response.pixels_as_float:
@@ -232,9 +291,10 @@ if __name__ == '__main__':
                 print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_uint8), pprint.pformat(response.camera_position)))
                 airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(i), str(timestamp) + "_" + str(i) + '.png')), response.image_data_uint8)
 
-                if i == 2 or i == 3:
+                # 方式一：根据label在图像上，进行box计算
+                if  i == 100:
                     im = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
-                    im = im.reshape(response.height, response.width, 3)           # reshape array to 4 channel image
+                    im = im.reshape(response.height, response.width, 3)           # reshape array to 3channel image
                     # im = np.flipud(im)                                            # original image is flipped vertically
 
                     # find unique colors and draw bounding boxes
@@ -287,14 +347,65 @@ if __name__ == '__main__':
                         # boxedTrue = draw_bbs_on_image(trueIm, bbs)
                         boxedSeg =  draw_bbs_on_image(im, bbs)
 
-                        cv2.imshow('infrared:2, seg:3, i:'+str(i), im)
-                        cv2.waitKey(int(DELAY * 1000))
-                        cv2.destroyAllWindows()
-
                         # display the images
                         # cv2.imshow('Scene + BBs', swapRB(np.flipud(boxedTrue)))
                         # cv2.imshow('Segmented + BBs', swapRB(np.flipud(boxedSeg)))
                         # cv2.waitKey(int(DELAY * 1000))
+
+                        cv2.imshow('infrared:2, seg:3, i:'+str(i), boxedSeg)
+                        cv2.waitKey(int(DELAY * 1000))
+                        cv2.destroyAllWindows()
+
+                # 方式二：直接调用airsim官方的detection接口
+                if i == 0: # airsim.ImageType.Scene
+                    rawImage = client.simGetImage(detect_camera_name, detect_image_type)
+                    # png = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+                    # png = png.reshape(response.height, response.width, 3)           # reshape array to 4 channel image
+                    png = cv2.imdecode(airsim.string_to_uint8_array(rawImage), cv2.IMREAD_UNCHANGED)
+                    all_of_interests= client.simGetDetections(detect_camera_name, detect_image_type)
+
+                    object_infos =[]
+                    if all_of_interests:
+                        for interest in all_of_interests:
+                            # s = pprint.pformat(interest)
+                            # print(" object: %s" % s)
+                            label = client.simGetSegmentationObjectID(interest.name)
+
+                            object_info="{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}"\
+                            .format(interest.box2D.max.x_val, interest.box2D.max.y_val, interest.box2D.min.x_val, interest.box2D.min.y_val,
+                            interest.box3D.max.x_val, interest.box3D.max.y_val, interest.box3D.max.z_val,
+                            interest.box3D.min.x_val, interest.box3D.min.y_val, interest.box3D.min.z_val,
+                            interest.geo_point.altitude, interest.geo_point.latitude, interest.geo_point.longitude,
+                            interest.name,
+                            interest.relative_pose.orientation.w_val, interest.relative_pose.orientation.x_val, interest.relative_pose.orientation.y_val, interest.relative_pose.orientation.z_val,
+                            interest.relative_pose.position.x_val, interest.relative_pose.position.y_val, interest.relative_pose.position.z_val, label)
+                            object_infos.append(object_info)
+
+                            cv2.rectangle(png,(int(interest.box2D.min.x_val),int(interest.box2D.min.y_val)),(int(interest.box2D.max.x_val),int(interest.box2D.max.y_val)),(255,0,0),2)
+                            cv2.putText(png, interest.name, (int(interest.box2D.min.x_val),int(interest.box2D.min.y_val + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12))
+
+
+                    bbs_file = os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.txt'))
+                    header = "box2D.max.x_val box2D.max.y_val box2D.min.x_val box2D.min.y_val \
+                            box3D.max.x_val box3D.max.y_val box3D.max.z_val \
+                            box3D.min.x_val box3D.min.y_val box3D.min.z_val \
+                            geo_point.altitude geo_point.latitude geo_point.longitude \
+                            name \
+                            relative_pose.orientation.w_val relative_pose.orientation.x_val relative_pose.orientation.y_val relative_pose.orientation.z_val \
+                            relative_pose.position.x_val relative_pose.position.y_val relative_pose.position.z_val label"
+                    with open(bbs_file,'w') as f:    #设置文件对象
+                            f.writelines(header+"\n")
+                            for object_info in object_infos:
+                                f.writelines(object_info+"\n")                 #将字符串写入文件中
+
+                    save_box_image = True
+                    if save_box_image:
+                        # airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.png')), png)
+                        cv2.imwrite(os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.png')), png)
+                    else:
+                        cv2.imshow("bbox", png)
+                        cv2.waitKey(int(DELAY * 300))
+                        cv2.destroyAllWindows()
 
         pose = client.simGetVehiclePose()
         pp.pprint(pose)
@@ -304,7 +415,6 @@ if __name__ == '__main__':
         time.sleep(3)
 
         line = fin.readline().strip()
-
 
     # pp = pprint.PrettyPrinter(indent=4)
 
