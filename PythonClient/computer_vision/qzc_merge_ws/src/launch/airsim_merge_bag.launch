@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="airsim_merge_rosbag" name="airsim_merge_rosbag" type="airsim_merge_rosbag_node.py" output="screen">
+        <!-- <param name="mesh_match_regex" value="OrangeBall" />
+        <param name="camera_name_list" value="[front_center_custom, front_left_custom, front_right_custom]" /> -->
+    </node>
+</launch>
