@@ -429,21 +429,22 @@ class BoundingBoxDirMessages:
             obj_3d.bbox_2d.size_x = (max_x-min_x)/2
             obj_3d.bbox_2d.size_y =  (max_y-min_y)/2
 
-            # obj_3d.bbox_3d.center.position.x =(max_x_3d+min_x_3d)/2
-            # obj_3d.bbox_3d.center.position.y =(max_y_3d+min_y_3d)/2
-            # obj_3d.bbox_3d.center.position.z =(max_z_3d+min_z_3d)/2
-            obj_3d.bbox_3d.center.position.x =x
-            obj_3d.bbox_3d.center.position.y =y
-            obj_3d.bbox_3d.center.position.z =z
+            obj_3d.bbox_3d.center.position.x =(max_x_3d+min_x_3d)/2
+            obj_3d.bbox_3d.center.position.y =(max_y_3d+min_y_3d)/2
+            obj_3d.bbox_3d.center.position.z =(max_z_3d+min_z_3d)/2
+            # !!!!!!!!!!! notice : relative_pose.position.z_val not correct (below z) !!!!!!!!!!!!!!!!!!!!!
+            # obj_3d.bbox_3d.center.position.x =x
+            # obj_3d.bbox_3d.center.position.y =y
+            # obj_3d.bbox_3d.center.position.z =z
 
             obj_3d.bbox_3d.center.orientation.w = qw
             obj_3d.bbox_3d.center.orientation.x = qx
             obj_3d.bbox_3d.center.orientation.y = qy
             obj_3d.bbox_3d.center.orientation.z = qz
 
-            obj_3d.bbox_3d.size.x =(max_x_3d-min_x_3d)/2
-            obj_3d.bbox_3d.size.y =(max_y_3d-min_y_3d)/2
-            obj_3d.bbox_3d.size.z =(max_z_3d-min_z_3d)/2
+            obj_3d.bbox_3d.size.x =(max_x_3d-min_x_3d)
+            obj_3d.bbox_3d.size.y =(max_y_3d-min_y_3d)
+            obj_3d.bbox_3d.size.z =(max_z_3d-min_z_3d)
 
             msg.obj_3d.append(obj_3d)
 
@@ -635,6 +636,7 @@ def transform_msg_from_txt2(path_to_airsim_txt, child_frame_id, frame_id):
             ])
         F = R.T @ T @ C
 
+        # add by aqiu
         # print(F)
         F=np.linalg.inv(F)
         # print(F)
