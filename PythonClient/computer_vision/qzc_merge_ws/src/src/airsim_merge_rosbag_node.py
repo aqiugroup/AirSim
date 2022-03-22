@@ -213,6 +213,9 @@ class SemanticLabelDirMessages:
 
     def compose_msg(self, filename, sec, nsec):
         img = cv2.imread(filename,0)
+        # print("filename: ", filename)
+        if img is None:
+            print(f"sec: {sec} nsec:{nsec}")
         msg = CvBridge().cv2_to_imgmsg(img,"mono8")
         msg.header.stamp.secs = sec
         msg.header.stamp.nsecs = nsec
@@ -229,7 +232,7 @@ class SemanticLabelDirMessages:
             return self.topic_name, self.compose_msg(filename, sec,nsec)
         return None
 
-    def check_match_airsim(self,sec,nsecs):
+    def check_match_airsim(self,sec,nsecs, vio_pose_msg):
         nsec = round(nsecs*1e-6)
         if nsec < 10:
              k = '{}.00{}'.format(sec,nsec)
@@ -283,7 +286,7 @@ class StereoDepthDirMessages:
             return self.topic_name, self.compose_msg(filename, sec,nsec)
         return None
 
-    def check_match_airsim(self,sec,nsecs):
+    def check_match_airsim(self,sec,nsecs, vio_pose_msg):
         nsec = round(nsecs*1e-6)
         if nsec < 10:
              k = '{}.00{}'.format(sec,nsec)
@@ -335,7 +338,7 @@ class StereoImageDirMessages:
             return self.topic_name, self.compose_msg(filename, sec,nsec)
         return None
 
-    def check_match_airsim(self,sec,nsecs):
+    def check_match_airsim(self,sec,nsecs, vio_pose_msg):
         nsec = round(nsecs*1e-6)
         if nsec < 10:
              k = '{}.00{}'.format(sec,nsec)
@@ -399,11 +402,39 @@ class BoundingBoxDirMessages:
 # relative_pose.orientation.w_val relative_pose.orientation.x_val relative_pose.orientation.y_val relative_pose.orientation.z_val \
 # relative_pose.position.x_val relative_pose.position.y_val relative_pose.position.z_val label"
 
-    def compose_msg(self, filename, sec, nsec):
+    def compose_msg(self, filename, sec, nsec, vio_pose_msg):
+        vio_position = vio_pose_msg.transforms[0].transform.translation
+        vio_rotation = vio_pose_msg.transforms[0].transform.rotation
+        Tw1c = np.eye(4)
+        Tw1c[:3, 3] = [vio_position.x, vio_position.y, vio_position.z]
+        Tw1c[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((vio_rotation.w, vio_rotation.x, vio_rotation.y, vio_rotation.z))
+        Tcw1=np.linalg.inv(Tw1c)
+
+        C = np.array([
+            [ 1,  0,  0,  0],
+            [ 0,  0, -1,  0],
+            [ 0,  1,  0,  0],
+            [ 0,  0,  0,  1]
+        ])
+        C1 = np.array([
+            [ 1,  0,  0,  0],
+            [ 0,  0, -1,  0],
+            [ 0,  1,  0,  0],
+            [ 0,  0,  0,  1]
+        ])
+        C2 = np.array([
+            [ 0,  1,  0,  0],
+            [ 1,  0,  0,  0],
+            [ 0,  0,  -1,  0],
+            [ 0,  0,  0,  1]
+        ])
+        C3=C1 @ C2 # cam(ned) --> cam(右x下y前z)
+
         msg =  Perception()
         df = pd.read_csv(filename, sep='\s+')
         for frame in (range(0, df.shape[0], 1)):
-            max_x, max_y, min_x, min_y, name, label, max_x_3d, max_y_3d, max_z_3d, min_x_3d, min_y_3d, min_z_3d, qw, qx, qy, qz, x, y, z \
+            max_x, max_y, min_x, min_y, name, label, max_x_3d, max_y_3d, max_z_3d, min_x_3d, min_y_3d, min_z_3d, qw, qx, qy, qz, x, y, z, \
+            o_x, o_y, o_z, o_qw, o_qx, o_qy, o_qz \
             = df.iloc[frame][[
                 'box2D.max.x_val', 'box2D.max.y_val',
                 'box2D.min.x_val', 'box2D.min.y_val',
@@ -413,6 +444,8 @@ class BoundingBoxDirMessages:
                 'box3D.min.x_val', 'box3D.min.y_val', 'box3D.min.z_val',
                 'relative_pose.orientation.w_val', 'relative_pose.orientation.x_val', 'relative_pose.orientation.y_val', 'relative_pose.orientation.z_val',
                 'relative_pose.position.x_val','relative_pose.position.y_val','relative_pose.position.z_val',
+                'pose_in_w.position.x_val', 'pose_in_w.position.y_val', 'pose_in_w.position.z_val',
+                'pose_in_w.orientation.w_val', 'pose_in_w.orientation.x_val', 'pose_in_w.orientation.y_val', 'pose_in_w.orientation.z_val'
             ]]
             obj_3d = Object_3D()
             if name in self.bbs:
@@ -429,22 +462,64 @@ class BoundingBoxDirMessages:
             obj_3d.bbox_2d.size_x = (max_x-min_x)/2
             obj_3d.bbox_2d.size_y =  (max_y-min_y)/2
 
-            obj_3d.bbox_3d.center.position.x =(max_x_3d+min_x_3d)/2
-            obj_3d.bbox_3d.center.position.y =(max_y_3d+min_y_3d)/2
-            obj_3d.bbox_3d.center.position.z =(max_z_3d+min_z_3d)/2
-            # !!!!!!!!!!! notice : relative_pose.position.z_val not correct (below z) !!!!!!!!!!!!!!!!!!!!!
-            # obj_3d.bbox_3d.center.position.x =x
-            # obj_3d.bbox_3d.center.position.y =y
-            # obj_3d.bbox_3d.center.position.z =z
+            obj_3d.bbox_3d.size.x =abs(max_x_3d-min_x_3d)
+            obj_3d.bbox_3d.size.y =abs(max_y_3d-min_y_3d)
+            obj_3d.bbox_3d.size.z =abs(max_z_3d-min_z_3d)
 
-            obj_3d.bbox_3d.center.orientation.w = qw
-            obj_3d.bbox_3d.center.orientation.x = qx
-            obj_3d.bbox_3d.center.orientation.y = qy
-            obj_3d.bbox_3d.center.orientation.z = qz
+            # obj_3d.bbox_3d.center.position.x =(max_x_3d+min_x_3d)/2
+            # obj_3d.bbox_3d.center.position.y =(max_y_3d+min_y_3d)/2
+            # obj_3d.bbox_3d.center.position.z =(max_z_3d+min_z_3d)/2
+            # # !!!!!!!!!!! notice : relative_pose.position.z_val not correct (below z) !!!!!!!!!!!!!!!!!!!!!
+            # # obj_3d.bbox_3d.center.position.x =x
+            # # obj_3d.bbox_3d.center.position.y =y
+            # # obj_3d.bbox_3d.center.position.z =z
 
-            obj_3d.bbox_3d.size.x =(max_x_3d-min_x_3d)
-            obj_3d.bbox_3d.size.y =(max_y_3d-min_y_3d)
-            obj_3d.bbox_3d.size.z =(max_z_3d-min_z_3d)
+            # obj_3d.bbox_3d.center.orientation.w = qw
+            # obj_3d.bbox_3d.center.orientation.x = qx
+            # obj_3d.bbox_3d.center.orientation.y = qy
+            # obj_3d.bbox_3d.center.orientation.z = qz
+
+            ########################## 方式二：用 simGetObjectPose 获取的 box 结果 #######################################
+            # 1 先转到世界坐标系下
+            T2 = [o_x, o_y, o_z, 1]
+            R2 = np.eye(4)
+            R2[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((o_qw, o_qx, o_qy, o_qz))
+            t_w1o1 = C.T @ C3 @ T2
+            F21 = C.T@ C3 @ R2
+            F22 = F21[:3, :3]
+            R22 = Rotation.from_matrix(F22)
+            q_w1o1 = R22.as_quat()
+            # new_quat = q_w1o1
+
+            # 2 进行z方向的补偿（沿着box朝向）
+            # 沿着box的z方向补偿一半的高度
+            sign = 1
+            if max_z_3d-min_z_3d < 0:
+                sign = -1
+            T_WO = np.eye(4)
+            T_WO[:,3] =t_w1o1
+            r_wo2 = F21
+            r_wo2[:3, 3] = [0,  0,  sign * (max_z_3d-min_z_3d)/2]
+            T_WO = T_WO @ r_wo2
+            # 沿着box的z方向补偿一半的高度
+            t_w1o2 = T_WO[:, 3]
+            # new_p = t_w1o2
+
+            # 以下为将box位姿转到相机下 t_co
+            # Tco = Tcw1 * Tw1o
+            t_co = Tcw1 @ t_w1o2
+            r_co = Tcw1 @ F21
+            r_co1 = Rotation.from_matrix(r_co[:3,:3])
+            q_co = r_co1.as_quat()
+            ########################## 方式二：用 simGetObjectPose 获取的 box 结果 #######################################
+            obj_3d.bbox_3d.center.position.x = t_co[0]
+            obj_3d.bbox_3d.center.position.y = t_co[1]
+            obj_3d.bbox_3d.center.position.z = t_co[2]
+
+            obj_3d.bbox_3d.center.orientation.w = q_co[3]
+            obj_3d.bbox_3d.center.orientation.x = q_co[0]
+            obj_3d.bbox_3d.center.orientation.y = q_co[1]
+            obj_3d.bbox_3d.center.orientation.z = q_co[2]
 
             msg.obj_3d.append(obj_3d)
 
@@ -463,7 +538,7 @@ class BoundingBoxDirMessages:
             return self.topic_name, self.compose_msg(filename, sec,nsec)
         return None
 
-    def check_match_airsim(self,sec,nsecs):
+    def check_match_airsim(self,sec,nsecs,vio_pose_msg):
         nsec = round(nsecs*1e-6)
         if nsec < 10:
              k = '{}.00{}'.format(sec,nsec)
@@ -475,7 +550,7 @@ class BoundingBoxDirMessages:
             filename = self.D[k]
             # print('matched: '+filename)
             self.D.pop(k)
-            return self.topic_name, self.compose_msg(filename, sec,nsecs)
+            return self.topic_name, self.compose_msg(filename, sec,nsecs,vio_pose_msg)
         return None
 
     def save_bbs_label_id_map(self):
@@ -733,11 +808,12 @@ def parser():
     in_imu_data = "imu_data.xlsx"
     calib_file = "lidar_cam_imu_calib_test_car_v0.0.2.yaml"
     downsample = True
-    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_ok_2022031001.bag"
+    out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_ok_2022032202.bag"
     # out_bag = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_bb_small_ok_2022031001.bag"
 
     # for tf
     vio_pose_csv = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec.txt"
+    # vio_pose_csv = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_rec_small1.txt"
     vio_topic = "/local/odometry"
     world_frame_id = "world"
     body_frame_id = "imu_baselink"  # same as imu_frame_id
@@ -859,24 +935,33 @@ if __name__ == "__main__":
 
     stereo_left_msgs = StereoImageDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/0",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/0",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/0",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/0",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/0",
         args.left_image_topic, args.left_image_frame_id)
 
     stereo_depth_msgs = StereoDepthDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/1",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/1",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/1",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/1",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/1",
         args.left_depth_topic, args.left_depth_frame_id)
 
     # semantic_rgb_msgs = SemanticLabelWithRGBDirMessages(
     semantic_rgb_msgs = SemanticLabelDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/2",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/2",
         args.left_semantic_topic, args.left_semantic_frame_id)
 
     bb_msgs = BoundingBoxDirMessages(
         # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/3",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/3",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/3",
+        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/3",
+        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/3",
         args.left_perception_topic, args.left_perception_frame_id)
+
 
     tf_array_vio = transform_msg_from_txt2(args.vio_pose_csv, args.body_frame_id, args.world_frame_id)
     tf_array_idx_vio = 0
@@ -906,7 +991,7 @@ if __name__ == "__main__":
 
             # for local_msgs in [semantic_rgb_msgs, stereo_depth_msgs, stereo_left_msgs,]:
             for local_msgs in [semantic_rgb_msgs, stereo_depth_msgs, stereo_left_msgs, bb_msgs]:
-                ret = local_msgs.check_match_airsim(vio_timestamp.secs, vio_timestamp.nsecs)
+                ret = local_msgs.check_match_airsim(vio_timestamp.secs, vio_timestamp.nsecs, vio_pose_msg)
                 if not ret is None:
                     topic, msg = ret
                     outbag.write(topic, msg, vio_timestamp)

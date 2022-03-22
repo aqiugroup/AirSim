@@ -231,6 +231,8 @@ def setup():
 
 if __name__ == '__main__':
     file_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02-06/airsim_rec.txt" # sys.argv[1]
+    # file_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02-06/airsim_rec_continue.txt" # sys.argv[1]
+    # file_path = "/Users/aqiu/Documents/AirSim/airsim_rec_small1.txt" # sys.argv[1]
     cur_dir = file_path[:file_path.rfind(os.path.sep)] + os.path.sep
     print(cur_dir)
 
@@ -275,6 +277,16 @@ if __name__ == '__main__':
 
         client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(pos_x, pos_y, pos_z), airsim.Quaternionr(quat_x,quat_y,quat_z,quat_w)), True)
         time.sleep(0.1)
+
+        print(">>>>>>>>>>simGetVehiclePose")
+        print("vehicle pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(pos_x, pos_y, pos_z, quat_w, quat_x,quat_y,quat_z))
+        pose = client.simGetVehiclePose()
+        # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
+        p =pp.pprint(pose)
+
+        camera_info = client.simGetCameraInfo(str(0))
+        # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
+        p = pp.pprint(camera_info)
 
         responses = client.simGetImages([
         airsim.ImageRequest("0", airsim.ImageType.Scene, False, True),
@@ -373,16 +385,20 @@ if __name__ == '__main__':
                             # s = pprint.pformat(interest)
                             # print(" object: %s" % s)
                             label = client.simGetSegmentationObjectID(interest.name)
+                            pose_in_w = client.simGetObjectPose(interest.name)
 
-                            object_info="{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}"\
+                            object_info="{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}"\
                             .format(interest.box2D.max.x_val, interest.box2D.max.y_val, interest.box2D.min.x_val, interest.box2D.min.y_val,
                             interest.box3D.max.x_val, interest.box3D.max.y_val, interest.box3D.max.z_val,
                             interest.box3D.min.x_val, interest.box3D.min.y_val, interest.box3D.min.z_val,
                             interest.geo_point.altitude, interest.geo_point.latitude, interest.geo_point.longitude,
                             interest.name,
                             interest.relative_pose.orientation.w_val, interest.relative_pose.orientation.x_val, interest.relative_pose.orientation.y_val, interest.relative_pose.orientation.z_val,
-                            interest.relative_pose.position.x_val, interest.relative_pose.position.y_val, interest.relative_pose.position.z_val, label)
+                            interest.relative_pose.position.x_val, interest.relative_pose.position.y_val, interest.relative_pose.position.z_val,
+                            pose_in_w.position.x_val, pose_in_w.position.y_val, pose_in_w.position.z_val,
+                            pose_in_w.orientation.w_val, pose_in_w.orientation.x_val, pose_in_w.orientation.y_val, pose_in_w.orientation.z_val,  label)
                             object_infos.append(object_info)
+
 
                             cv2.rectangle(png,(int(interest.box2D.min.x_val),int(interest.box2D.min.y_val)),(int(interest.box2D.max.x_val),int(interest.box2D.max.y_val)),(255,0,0),2)
                             cv2.putText(png, interest.name, (int(interest.box2D.min.x_val),int(interest.box2D.min.y_val + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12))
@@ -395,7 +411,9 @@ if __name__ == '__main__':
                             geo_point.altitude geo_point.latitude geo_point.longitude \
                             name \
                             relative_pose.orientation.w_val relative_pose.orientation.x_val relative_pose.orientation.y_val relative_pose.orientation.z_val \
-                            relative_pose.position.x_val relative_pose.position.y_val relative_pose.position.z_val label"
+                            relative_pose.position.x_val relative_pose.position.y_val relative_pose.position.z_val \
+                            pose_in_w.position.x_val pose_in_w.position.y_val pose_in_w.position.z_val\
+                            pose_in_w.orientation.w_val pose_in_w.orientation.x_val pose_in_w.orientation.y_val pose_in_w.orientation.z_val label"
                     with open(bbs_file,'w') as f:    #设置文件对象
                             f.writelines(header+"\n")
                             for object_info in object_infos:
