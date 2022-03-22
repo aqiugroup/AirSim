@@ -71,7 +71,7 @@ else:
 
 # Load the recording metadata
 data_path = os.path.join(airsim_path, run)
-df = pd.read_csv(os.path.join(data_path, 'airsim_rec_small.txt'), delimiter='\t')
+df = pd.read_csv(os.path.join(data_path, 'airsim_rec_small1.txt'), delimiter='\t')
 
 # Create the output directory if needed
 if args.write_frames:
@@ -84,6 +84,7 @@ cams = []
 
 data_folder = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/"
 data_folder = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/"
+data_folder = "/Users/aqiu/Documents/AirSim/airsim_drone/"
 # Loop over all the frames
 for frame in tqdm(range(0, df.shape[0], args.step)):
 
@@ -103,8 +104,15 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
             [ 0,  1,  0,  0],
             [ 0,  0,  0,  1]
         ])
+    # C = np.array([
+    #     [ 1,  0,  0,  0],
+    #     [ 0,  1, 0,  0],
+    #     [ 0,  0,  1,  0],
+    #     [ 0,  0,  0,  1]
+    #     ])
 
-    F = R.T @ T @ C
+    Tcw = R.T @ T # c was in cam(右x下y前z)
+    Tcw1 = R.T @ T @ C
 
     # a  = np.array([[1, 2], [3, 4]])  # 初始化一个非奇异矩阵(数组)
     # print(a)
@@ -137,7 +145,7 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
     color_image = o3d.geometry.Image(np.asarray(color))
     depth_image = o3d.geometry.Image(depth)
     rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(color_image, depth_image, depth_scale=1.0, depth_trunc=args.depth_trunc, convert_rgb_to_intensity=False)
-    rgbd_pc = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, intrinsic, extrinsic=F)
+    rgbd_pc = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd_image, intrinsic, extrinsic=Tcw1)
     pcd += rgbd_pc
 
     # Save the point cloud for this frame
@@ -154,7 +162,7 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
     print("open3d size : ", len(rgbd_pc.points))
 
     # test my algorithm
-    F=np.linalg.inv(F)
+    Tw1c=np.linalg.inv(Tcw1)
     cnt = 0
     for i in range(img_height):
         for j in range(img_width):
@@ -166,7 +174,7 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
 
 
 
-                p = F @ [x, y, z, 1.0]
+                p = Tw1c @ [x, y, z, 1.0]
                 rgbd_pc.points[cnt] = p[:3]
                 cnt= cnt + 1
 
@@ -184,13 +192,15 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
         o3d.io.write_point_cloud(pcd_path, rgbd_pc)
 
     # === Save the camera position ===
-    cams.append(o3d.geometry.LineSet.create_camera_visualization(intrinsic, F))
+    cams.append(o3d.geometry.LineSet.create_camera_visualization(intrinsic, Tcw1))
 
     #################### begin: get 3d box ###################
-    df = pd.read_csv(box_path, sep='\s+')
-    for frame in (range(0, df.shape[0], 1)):
-        max_x, max_y, min_x, min_y, name, label, max_x_3d, max_y_3d, max_z_3d, min_x_3d, min_y_3d, min_z_3d, qw, qx, qy, qz, x, y, z \
-        = df.iloc[frame][[
+    df1 = pd.read_csv(box_path, sep='\s+')
+    oriented_bounding_boxs=[rgbd_pc]
+    for frame1 in (range(0, df1.shape[0], 1)):
+        max_x, max_y, min_x, min_y, name, label, max_x_3d, max_y_3d, max_z_3d, min_x_3d, min_y_3d, min_z_3d, qw, qx, qy, qz, x, y, z, \
+        o_x, o_y, o_z, o_qw, o_qx, o_qy, o_qz\
+        = df1.iloc[frame1][[
             'box2D.max.x_val', 'box2D.max.y_val',
             'box2D.min.x_val', 'box2D.min.y_val',
             'name',
@@ -199,21 +209,29 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
             'box3D.min.x_val', 'box3D.min.y_val', 'box3D.min.z_val',
             'relative_pose.orientation.w_val', 'relative_pose.orientation.x_val', 'relative_pose.orientation.y_val', 'relative_pose.orientation.z_val',
             'relative_pose.position.x_val','relative_pose.position.y_val','relative_pose.position.z_val',
+            'pose_in_w.position.x_val', 'pose_in_w.position.y_val', 'pose_in_w.position.z_val',
+            'pose_in_w.orientation.w_val', 'pose_in_w.orientation.x_val', 'pose_in_w.orientation.y_val', 'pose_in_w.orientation.z_val'
         ]]
-        if frame > 30 and label < 3:
+        if label < 5:
+        # if frame1 > 150 and label < 5:
             oriented_bounding_box = rgbd_pc.get_oriented_bounding_box()
             oriented_bounding_box.color = (1, 0, 0)
 
+            ########################## box的中心和朝向 #######################################
+            ########################## 方式一：用simGetDetections获取的3d box结果 #######################################
             # !!!!!!!!!!! notice : relative_pose.position.z_val not correct !!!!!!!!!!!!!!!!!!!!!
-            x =(max_x_3d+min_x_3d)/2
-            y =(max_y_3d+min_y_3d)/2
-            z =(max_z_3d+min_z_3d)/2
+            # x =(max_x_3d+min_x_3d)/2
+            # y =(max_y_3d+min_y_3d)/2
+            # z =(max_z_3d+min_z_3d)/2
             # === Create the transformation matrix ===
             T1 = [x, y, z, 1]
 
             R1 = np.eye(4)
             # get_rotation_matrix_from_quaternion (w,x,y,z)
             R1[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((qw, qx, qy, qz))
+            if label == 1:
+                print("object: min={}, {},{}, max={},{},{}".format(min_x_3d, min_y_3d, min_z_3d, max_x_3d, max_y_3d, max_z_3d))
+                print("object: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(x, y, z, qw, qx, qy, qz))
 
             C1 = np.array([
                 [ 1,  0,  0,  0],
@@ -228,18 +246,140 @@ for frame in tqdm(range(0, df.shape[0], args.step)):
                 [ 0,  0,  0,  1]
             ])
             C3=C1 @ C2 # cam(ned) --> cam(右x下y前z)
-            F11 = F @ C3
+            F11 = Tw1c @ C3
             new_p = F11 @ T1
             F11 = F11  @ R1
             F12 = F11[:3, :3]
             R12 = Rotation.from_matrix(F12)
             new_quat = R12.as_quat()
 
+            # 将box位姿转到相机下 t_co
+            t_co = C3 @T1
+            r_co = C3 @ R1
+            r_co1 = Rotation.from_matrix(r_co[:3,:3])
+            q_co = r_co1.as_quat()
+            if label == 1:
+                print("object pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(t_co[0], t_co[1], t_co[2], q_co[3], q_co[0], q_co[1], q_co[2]))
+
+            # T2 = [o_x, o_y, o_z, 1]
+            # R2 = np.eye(4)
+            # R2[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((o_qw, o_qx, o_qy, o_qz))
+            # new_p2 = F @ Tcw @ T2  @ C3
+            # F21 =  F @ Tcw @ R2  @ C3
+            # F22 = F21[:3, :3]
+            # R22 = Rotation.from_matrix(F22)
+            # new_quat2 = R22.as_quat()
+
+            # T2 = np.eye(4)
+            # T2[:3,3] = [-o_y, -o_z, -o_x]
+            # R2 = np.eye(4)
+            # R2[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((o_qw, o_qy, o_qz, o_qx))
+            # O_F = R2.T @ T2 @ C
+            # O_F=np.linalg.inv(O_F)
+            # new_p2 = O_F[:3,3]
+            # F22 = O_F[:3, :3]
+            # R22 = Rotation.from_matrix(F22)
+            # new_quat2 = R22.as_quat()
+
+            ########################## 方式二：用 simGetObjectPose 获取的 box 结果 #######################################
+            # 1 先转到世界坐标系下
+            T2 = [o_x, o_y, o_z, 1]
+            R2 = np.eye(4)
+            R2[:3,:3] = o3d.geometry.get_rotation_matrix_from_quaternion((o_qw, o_qx, o_qy, o_qz))
+            t_w1o1 = C.T @ C3 @ T2
+            F21 = C.T@ C3 @ R2
+            F22 = F21[:3, :3]
+            R22 = Rotation.from_matrix(F22)
+            q_w1o1 = R22.as_quat()
+            new_quat = q_w1o1
+
+            # 2 进行z方向的补偿（沿着box朝向）
+            # 沿着box的z方向补偿一半的高度
+            sign = 1
+            if max_z_3d-min_z_3d < 0:
+                sign = -1
+            T_WO = np.eye(4)
+            T_WO[:,3] =t_w1o1
+            r_wo2 = F21
+            r_wo2[:3, 3] = [0,  0,  sign * (max_z_3d-min_z_3d)/2]
+            T_WO = T_WO @ r_wo2
+            # 沿着box的z方向补偿一半的高度
+            t_w1o2 = T_WO[:, 3]
+            new_p = t_w1o2
+
+
+
+            # 以下为将box位姿转到相机下 t_co
+            # Tco = Tcw1 * Tw1o
+            t_co = Tcw1 @ t_w1o2
+            r_co = Tcw1 @ F21
+            r_co1 = Rotation.from_matrix(r_co[:3,:3])
+            q_co = r_co1.as_quat()
+            if label == 1:
+                print("object pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(t_co[0], t_co[1], t_co[2], q_co[3], q_co[0], q_co[1], q_co[2]))
+
+            # 补偿z方向的距离
+            # sign = 1
+            # if max_z_3d-min_z_3d < 0:
+            #     sign = -1
+            # T_CO = np.eye(4)
+            # T_CO[:,3] =t_co
+            # r_co2 = r_co
+            # r_co2[:3, 3] = [0,   (max_z_3d-min_z_3d)/2, 0]
+            # T_CO = T_CO @ r_co2
+            # t_co = T_CO[:, 3]
+
+            # 验证转换后的 t_co
+            F31 =Tw1c @ r_co
+            F32 = F31[:3, :3]
+            R33 = Rotation.from_matrix(F32)
+            new_quat = R33.as_quat()
+
+
+            t_wo =  Tw1c @ t_co
+            # 沿着box的z方向补偿一半的高度(前面补偿了，这里就不需要了)
+            # sign = 1
+            # if max_z_3d-min_z_3d < 0:
+            #     sign = -1
+            # T_CO = np.eye(4)
+            # T_CO[:,3] =t_wo
+            # r_co2 = F31
+            # r_co2[:3, 3] = [0,  0,  sign * (max_z_3d-min_z_3d)/2]
+            # T_CO = T_CO @ r_co2
+            # t_wo = T_CO[:, 3]
+            # 沿着box的z方向补偿一半的高度
+            new_p = t_wo[:3]
+
+            # # Tco = inv(Tw1c) * Tw1o
+            # t_co = Tw1c @ C.T @ C3 @T2
+            # r_co = Tw1c @ C.T @ C3 @ R2
+            # r_co1 = Rotation.from_matrix(r_co[:3,:3])
+            # q_co = r_co1.as_quat()
+            # if label == 1:
+            #     print("object pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(t_co[0], t_co[1], t_co[2], q_co[3], q_co[0], q_co[1], q_co[2]))
+            # t_o =  np.linalg.inv(Tw1c) @ t_co
+            # new_p = t_o[:3]
+            # F31 = np.linalg.inv(Tw1c)  @ r_co
+            # F32 = F31[:3, :3]
+            # R33 = Rotation.from_matrix(F32)
+            # new_quat = R33.as_quat()
+            # new_p =  [o_x, o_y, o_z]
+            # new_quat = [o_qx, o_qy, o_qz, o_qw]
+            if label == 1:
+                print("vehicle pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(new_p[0], new_p[1], new_p[2], new_quat[3], new_quat[0], new_quat[1], new_quat[2]))
+                # print("vehicle pose: xyz2={}, {},{}, qwqxqyqz2={}, {},{},{}".format(new_p2[0], new_p2[1], new_p2[2], new_quat2[3], new_quat2[0], new_quat2[1], new_quat2[2]))
+
+            # new_p = new_p2
+            # new_quat=new_quat2
+
             oriented_bounding_box.center = [new_p[0], new_p[1], new_p[2]]
             oriented_bounding_box.R  = o3d.geometry.get_rotation_matrix_from_quaternion((new_quat[3], new_quat[0], new_quat[1], new_quat[2]))
-            oriented_bounding_box.extent=[max_x_3d-min_x_3d,  max_y_3d-min_y_3d, abs(max_z_3d-min_z_3d)]
-            o3d.visualization.draw([rgbd_pc, oriented_bounding_box])
-            print("display 3d box")
+            oriented_bounding_box.extent=[abs(max_x_3d-min_x_3d),  abs(max_y_3d-min_y_3d), abs(max_z_3d-min_z_3d)]
+
+            oriented_bounding_boxs.append(oriented_bounding_box)
+    # o3d.visualization.draw([rgbd_pc, oriented_bounding_box])
+    o3d.visualization.draw(oriented_bounding_boxs)
+    print("display 3d box")
     #################### end: get 3d box ###################
 
 

@@ -12,6 +12,7 @@ import re
 import subprocess
 import random
 import math
+from tf import transformations as tfs
 
 # Calculates Rotation Matrix given euler angles.
 def eulerAnglesToRotationMatrix(angles1) :
@@ -88,26 +89,47 @@ print('旋转转矩：\n', R)
 print('旋转向量：\n', rvecstmp)
 print('计算后的欧拉角：\n', rotationMatrixToEulerAngles(rvecstmp))
 
+# sxyz 和 rxyz 的区别
+alpha = eulerAngles[0]*3.141592653589793/180.0
+beta  = eulerAngles[1]*3.141592653589793/180.0
+gamma = eulerAngles[2]*3.141592653589793/180.0
+Re = tfs.euler_matrix(alpha, beta, gamma, 'sxyz') # 外旋 xyz : 左乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+# print("tf sxyz R: \n", Re)
+Re = tfs.euler_matrix(gamma, beta, alpha, 'rzyx') # 内旋 zyx : 右乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+# print("tf rzyx R: \n", Re)
+
+# alpha, beta, gamma = 0.123, -1.234, 2.345
+# origin, xaxis, yaxis, zaxis = (0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)
+# I = tfs.identity_matrix()
+# Rx = tfs.rotation_matrix(alpha, xaxis)
+# Ry = tfs.rotation_matrix(beta, yaxis)
+# Rz = tfs.rotation_matrix(gamma, zaxis)
+# R = tfs.concatenate_matrices(Rx, Ry, Rz)
+# euler = tfs.euler_from_matrix(R, 'rxyz')
+# print(euler)
+# Re = tfs.euler_matrix(alpha, beta, gamma, 'rxyz')
+# print(tfs.is_same_transform(R, Re))
+# al, be, ga = tfs.euler_from_matrix(Re, 'rxyz')
+# print([al, be, ga])
+# print(tfs.is_same_transform(R, tfs.euler_matrix(alpha, beta, gamma, 'rxyz')))
+# print(tfs.is_same_transform(R, tfs.euler_matrix(al, be, ga, axes='sxyz')))
+
 
 import pprint
 from decimal import *
 def print_pose(client):
     # 1 vehicle pose
     pose = client.simGetVehiclePose()
-    print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
-
     angles = airsim.to_eularian_angles(client.simGetVehiclePose().orientation)
-    print("pitch={}, roll={}, yaw={}".format(angles[0], angles[1], angles[2]))
+    print("vehicle pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val, angles[0], angles[1], angles[2]))
 
      # 2 multirotor pose
     state = client.getMultirotorState()
     # s = pprint.pformat(state)
     # print("state: %s" % s)
-    print("multirotor pose: x={}, y={}, z={}".format(state.kinematics_estimated.position.x_val, state.kinematics_estimated.position.y_val, state.kinematics_estimated.position.z_val))
-
     angles = airsim.to_eularian_angles(state.kinematics_estimated.orientation)
-    print("pitch={}, roll={}, yaw={}".format(angles[0], angles[1], angles[2]))
-
+    print("multirotor pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(state.kinematics_estimated.position.x_val, state.kinematics_estimated.position.y_val, state.kinematics_estimated.position.z_val,
+                                                                                                    angles[0], angles[1], angles[2]))
 
     # kinematics = client.simGetGroundTruthKinematics()
     # environment = client.simGetGroundTruthEnvironment()
@@ -116,14 +138,18 @@ def print_pose(client):
     #     pprint.pformat(kinematics), pprint.pformat(environment)))
 
      # 3 imu pose
+    pose = client.getImuData()
+    print("getImuData angular_velocity: x={}, y={}, z={}  linear_acceleration: x={}, y={}, z={}".format(pose.angular_velocity.x_val, pose.angular_velocity.y_val, pose.angular_velocity.z_val,
+                                                             pose.linear_acceleration.x_val, pose.linear_acceleration.y_val, pose.linear_acceleration.z_val))
+
 
      # 4 camera pose
-    img_position = client.simGetImages([airsim.ImageRequest(0, airsim.ImageType.Scene)])[0].camera_position
-    img_orientation = client.simGetImages([airsim.ImageRequest(0, airsim.ImageType.Scene)])[0].camera_orientation
-    print("camera pose: x={}, y={}, z={}".format(img_position.x_val, img_position.y_val, img_position.z_val))
-
+    pose =  client.simGetImages([airsim.ImageRequest(0, airsim.ImageType.Scene)])[0]
+    img_position = pose.camera_position
+    img_orientation = pose.camera_orientation
     angles = airsim.to_eularian_angles(img_orientation)
-    print("pitch={}, roll={}, yaw={}".format(angles[0], angles[1], angles[2]))
+    print("camera pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(img_position.x_val, img_position.y_val, img_position.z_val, angles[0], angles[1], angles[2]))
+
     # prefix="/Users/aqiu/Documents/AirSim"
     # state = client.getMultirotorState(vehicle_name = robot_name)
     # gt_name = prefix + '/groundtruth/data.tum'
@@ -160,34 +186,50 @@ def callBackFunc(x):
         # 前进
         client.moveByVelocityBodyFrameAsync(3, 0, 0, 0.5)
         print("前进")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == s.name:
         # 后退
         client.moveByVelocityBodyFrameAsync(-3, 0, 0, 0.5)
         print("后退")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == a.name:
         # 左移
         client.moveByVelocityBodyFrameAsync(0, -2, 0, 0.5)
         print("左移")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == d.name:
         # 右移
         client.moveByVelocityBodyFrameAsync(0, 2, 0, 0.5)
         print("右移")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == up.name:
         # 上升
         client.moveByVelocityBodyFrameAsync(0, 0, -0.5, 0.5)
         print("上升")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == down.name:
         # 下降
         client.moveByVelocityBodyFrameAsync(0, 0, 0.5, 0.5)
         print("下降")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == left.name:
         # 左转
         client.rotateByYawRateAsync(-20, 0.5)
         print("左转")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == right.name:
         # 右转
         client.rotateByYawRateAsync(20, 0.5)
         print("右转")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == k.name:
         # 无人机起飞
         # get control
@@ -203,6 +245,7 @@ def callBackFunc(x):
         z = -1
         print("make sure we are hovering at {} meters...".format(-z))
         client.moveToZAsync(z, 0.5).join()
+        print_pose(client)
 
     elif x.event_type == 'down' and x.name == l.name:
         # 无人机降落
@@ -214,13 +257,15 @@ def callBackFunc(x):
         # release control
         client.enableApiControl(False)
         print("release control")
+        print_pose(client)
+
     elif x.event_type == 'down' and x.name == h.name:
         # 没有按下按键
         client.moveByVelocityBodyFrameAsync(0, 0, 0, 0.5).join()
         client.hoverAsync().join()  # 第四阶段：悬停6秒钟
         print("悬停")
 
-    print_pose(client)
+    # print_pose(client)
 
 
 if __name__ == '__main__':
@@ -228,6 +273,8 @@ if __name__ == '__main__':
     client = airsim.MultirotorClient()
     client.confirmConnection()
     client.enableApiControl(True)
+    print("起始位置")
+    print_pose(client)
 
     # 监听键盘事件，执行回调函数
     keyboard.hook(callBackFunc)
