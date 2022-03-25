@@ -39,6 +39,7 @@ REGEX_OBJECTS_OF_INTEREST = [
     "Building[\w]*",
     "prp_metalPillar[\w]*",
     "flg_tree[\w]*",
+    "BP_LightStudio[\w]*",
 
 
     "prp_chainlinkFence[\w]*",
@@ -50,14 +51,16 @@ REGEX_OBJECTS_OF_INTEREST = [
     "prp_pylong_Sml[\w]*",
     "flg_grass[\w]*",
     "prp_parkingMeter[\w]*",
-    "Flg_hedge_Short[\w]*",
+    # "Flg_hedge_Short[\w]*",
+    "Flg_hedge[\w]*",
     "prp_metalFence[\w]*",
     "prp_barrier_Lrg[\w]*",
     "TrashBag[\w]*",
     "prp_potSquare[\w]*",
     "prp_cementBarrier[\w]*",
     "flg_fern[\w]*",
-    "prp_flag[\w]*"
+    "prp_flag[\w]*",
+    "Sign_1_mdl[\w]*"
 ]
 
 # for detection, not support [\w]* ??
@@ -82,6 +85,7 @@ REGEX_OBJECTS_OF_DETECTION_INTEREST = [
     "Building*",
     "prp_metalPillar*",
     "flg_tree*",
+    "BP_LightStudio*",
 
 
     "prp_chainlinkFence*",
@@ -93,14 +97,16 @@ REGEX_OBJECTS_OF_DETECTION_INTEREST = [
     "prp_pylong_Sml*",
     "flg_grass*",
     "prp_parkingMeter*",
-    "Flg_hedge_Short*",
+    # "Flg_hedge_Short*",
+    "Flg_hedge*",
     "prp_metalFence*",
     "prp_barrier_Lrg*",
     "TrashBag*",
     "prp_potSquare*",
     "prp_cementBarrier*",
     "flg_fern*",
-    "prp_flag*"
+    "prp_flag*",
+    "Sign_1_mdl*"
 ]
 
 # Classes corresponding to the objects in the REGEX_OBJECTS_OF_INTEREST list above.
@@ -125,6 +131,7 @@ OBJECT_OF_INTEREST_CLASSES = [
     "Building",
     "metalPillar",
     "tree",
+    "sky",
 
 
     "chainlinkFence",
@@ -136,14 +143,16 @@ OBJECT_OF_INTEREST_CLASSES = [
     "pylong_Sml",
     "grass",
     "parkingMeter",
-    "hedge_Short",
+    # "hedge_Short",
+    "hedge",
     "metalFence",
     "barrier_Lrg",
     "TrashBag",
     "potSquare",
     "cementBarrier",
     "fern",
-    "flag"
+    "flag",
+    "sign2"
 ]
 
 # An exhaustive list of all classes
@@ -193,10 +202,78 @@ MESH_COLS = np.array([
           [116,218,68],
         ])
 
+# https://tool.lu/color/
+CLASS_COLORS_OUTDOOR = [
+    (153, 108, 6), # 深米黄色
+    (112, 105, 191), # 深紫色
+    (89, 121, 72), # 深绿色
+    (190, 225, 64), # 深绿色-2
+    (206, 190, 59), # 深黄色-2
+    (81, 13, 36), # 深粉色
+    (115, 176, 195), # 深蓝色-2
+    (161, 171, 27), #深绿色-3
+    (135, 169, 180), # 浅灰色
+    (29, 26, 199), # 深蓝色
+    (102, 16, 239), # 深紫色
+    (242, 107, 146), # 老红色
+    (156, 198, 23), # 浅绿色
+    (49, 89, 160), #浅蓝色+2
+    (68, 218, 116), # 深绿色-3
+    (196, 30, 8), # 红色
+    (121, 67, 28), # 棕色
+    (0, 53, 65), # 蓝绿色
+    (11, 236, 9), # 绿色
+    (54, 72, 205), # 蓝色
+    (146, 52, 70), # 红色-3
+    (226, 149, 143), # 红色-2
+    (151, 126, 171), # 浅紫色-2
+    (194, 39, 7), # 红色2
+    (205, 120, 161), # 红色2-2
+    (212, 51, 60), # 红色3
+    (103, 252, 157), # 绿色2
+    (211, 80, 208), # 粉色
+    (195, 237, 132), # 绿色+3
+    (189, 135, 188), # 粉色+3
+    (124, 21, 123), # 紫色2
+    (19, 132, 69), # 绿色3
+    (94, 253, 175), # 绿色-3
+    (90, 162, 242), # 蓝色-1
+    (182, 251, 87), # 绿色+2
+    (199, 29, 1), # 红色3
+    (254, 12, 229) # 粉色-4
+]
+
 # deal with swapped RB values
 # cp = MESH_COLS.copy()
 # MESH_COLS[:,0] = cp[:,2]
 # MESH_COLS[:,2] = cp[:,0]
+
+id_color_dict={}
+for key, val in zip(OBJECT_OF_INTEREST_CLASSES, range(len(CLASS_COLORS_OUTDOOR))):
+    id_color_dict[val] = CLASS_COLORS_OUTDOOR[val]
+id_color_dict[255]=(0,0,0)
+
+map_label_to_color = np.vectorize(
+    lambda x: id_color_dict.get(x, id_color_dict[255])
+)
+
+
+import sys
+def status(length, percent, index=0):
+    sys.stdout.write('\x1B[2K') # Erase entire current line
+    sys.stdout.write('\x1B[0E') # Move to the beginning of the current line
+    progress = "Progress: ["
+    for i in range(0, length):
+        if i < length * percent:
+            progress += '='
+        else:
+            progress += ' '
+    progress += "] " + str(round(percent * 100.0, 2)) + "%" + " : " + str(index)
+    # progress += "] " + str(round(percent * 100.0, 2)) + "%\n"
+    sys.stdout.write(progress)
+    sys.stdout.flush()
+
+
 
 client = None
 
@@ -214,8 +291,32 @@ def setup():
     for key, val in zip(REGEX_OBJECTS_OF_INTEREST, range(len(REGEX_OBJECTS_OF_INTEREST))):
         msg = 'Setting %s to ID %d...' % (key, val)
         print(msg, end='')
-        found = client.simSetSegmentationObjectID(key, val, True);
+        found = client.simSetSegmentationObjectID(key, val, True)
         print(' ' * (40 - len(msg)) + ('[SUCCESS]' if found else '[FAILED!]'))
+        if key == "flg_tree[\w]*":
+            key_new = "InstancedFoliageActor[\w]*"
+            found = client.simSetSegmentationObjectID(key_new, val, True)
+            msg_new = 'Setting %s to ID %d...' % (key_new, val)
+            print(msg_new, end='')
+            print(' ' * (40 - len(msg_new)) + ('[SUCCESS]' if found else '[FAILED!]'))
+        if key == "prp_pylong_Sml[\w]*":
+            key_new = "prp_pylon_Lrg[\w]*"
+            found = client.simSetSegmentationObjectID(key_new, val, True)
+            msg_new = 'Setting %s to ID %d...' % (key_new, val)
+            print(msg_new, end='')
+            print(' ' * (40 - len(msg_new)) + ('[SUCCESS]' if found else '[FAILED!]'))
+        if key == "Landscape[\w]*":
+            key_new = "Intersection[\w]*"
+            found = client.simSetSegmentationObjectID(key_new, val, True)
+            msg_new = 'Setting %s to ID %d...' % (key_new, val)
+            print(msg_new, end='')
+            print(' ' * (40 - len(msg_new)) + ('[SUCCESS]' if found else '[FAILED!]'))
+
+            key_new = "GroundArea[\w]*"
+            found = client.simSetSegmentationObjectID(key_new, val, True)
+            msg_new = 'Setting %s to ID %d...' % (key_new, val)
+            print(msg_new, end='')
+            print(' ' * (40 - len(msg_new)) + ('[SUCCESS]' if found else '[FAILED!]'))
 
     # set 2d/3d detection
     # set detection radius in [cm]
@@ -225,7 +326,14 @@ def setup():
         msg = 'Detection: add mesh name--> %s ..' % (key)
         print(msg, end='\n')
         client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
-    # client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, "prp_pylong_Sml*")
+    key='InstancedFoliageActor*'
+    msg = 'Detection: add mesh name--> %s ..' % (key)
+    print(msg, end='\n')
+    client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
+    key='prp_pylon_Lrg*'
+    msg = 'Detection: add mesh name--> %s ..' % (key)
+    print(msg, end='\n')
+    client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
     # client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, "prp_cementBarrier*")
 
 
@@ -251,12 +359,33 @@ if __name__ == '__main__':
     tmp_dir = os.path.join(cur_dir, "airsim_drone")
     print ("Saving images to %s" % tmp_dir)
     try:
-        for n in range(4):
+        for n in range(3):
             os.makedirs(os.path.join(tmp_dir, str(n)))
     except OSError:
         if not os.path.isdir(tmp_dir):
             raise
 
+    # for semantic rgb
+    semantic_bgr_path = os.path.join(tmp_dir, str(20))
+    if os.path.exists(semantic_bgr_path) == False:
+        os.makedirs(semantic_bgr_path)
+    # for semantic bbox
+    semantic_bb_path = os.path.join(tmp_dir, str(21))
+    if os.path.exists(semantic_bb_path) == False:
+        os.makedirs(semantic_bb_path)
+
+    # ---------------------------- for debug begin --------------------------------
+    fin0 = open(file_path, "r")
+    pose_len = len(fin0.readlines())
+    fin0.close()
+    # This is for logging progress
+    duration = pose_len
+    start_time = 0
+    interval = 1 / duration
+    last_percent = 0
+    index = 0
+    status(40, 0, index)
+    # ---------------------------- for debug end --------------------------------
 
     fin = open(file_path, "r")
     line = fin.readline().strip()
@@ -278,32 +407,34 @@ if __name__ == '__main__':
         client.simSetVehiclePose(airsim.Pose(airsim.Vector3r(pos_x, pos_y, pos_z), airsim.Quaternionr(quat_x,quat_y,quat_z,quat_w)), True)
         time.sleep(0.1)
 
-        print(">>>>>>>>>>simGetVehiclePose")
-        print("vehicle pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(pos_x, pos_y, pos_z, quat_w, quat_x,quat_y,quat_z))
-        pose = client.simGetVehiclePose()
-        # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
-        p =pp.pprint(pose)
+        print_log = False
+        if print_log:
+            print(">>>>>>>>>>simGetVehiclePose")
+            print("vehicle pose: xyz={}, {},{}, qwqxqyqz={}, {},{},{}".format(pos_x, pos_y, pos_z, quat_w, quat_x,quat_y,quat_z))
+            pose = client.simGetVehiclePose()
+            # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
+            p =pp.pprint(pose)
 
-        camera_info = client.simGetCameraInfo(str(0))
-        # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
-        p = pp.pprint(camera_info)
+            camera_info = client.simGetCameraInfo(str(0))
+            # print("vehicle pose: x={}, y={}, z={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val))
+            p = pp.pprint(camera_info)
 
         responses = client.simGetImages([
-        airsim.ImageRequest("0", airsim.ImageType.Scene, False, True),
-        airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
-        airsim.ImageRequest("0", airsim.ImageType.Infrared,False, True),
-        # airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),
-        # airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
-        # airsim.ImageRequest("0", airsim.ImageType.Infrared,False, False),
-        # airsim.ImageRequest("0", airsim.ImageType.Segmentation,False, False)
+            airsim.ImageRequest("0", airsim.ImageType.Scene, False, True),
+            airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
+            airsim.ImageRequest("0", airsim.ImageType.Infrared,False, True),
+            # airsim.ImageRequest("0", airsim.ImageType.Scene, False, False),
+            # airsim.ImageRequest("0", airsim.ImageType.DepthPerspective, True, False),
+            # airsim.ImageRequest("0", airsim.ImageType.Infrared,False, False),
+            # airsim.ImageRequest("0", airsim.ImageType.Segmentation,False, False)
         ])
 
         for i, response in enumerate(responses):
             if response.pixels_as_float:
-                print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_float), pprint.pformat(response.camera_position)))
+                # print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_float), pprint.pformat(response.camera_position)))
                 airsim.write_pfm(os.path.normpath(os.path.join(tmp_dir,  str(i), str(timestamp) + "_" + str(i) + '.pfm')), airsim.get_pfm_array(response))
             else:
-                print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_uint8), pprint.pformat(response.camera_position)))
+                # print("Type %d, size %d, pos %s" % (response.image_type, len(response.image_data_uint8), pprint.pformat(response.camera_position)))
                 airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(i), str(timestamp) + "_" + str(i) + '.png')), response.image_data_uint8)
 
                 # 方式一：根据label在图像上，进行box计算
@@ -404,7 +535,7 @@ if __name__ == '__main__':
                             cv2.putText(png, interest.name, (int(interest.box2D.min.x_val),int(interest.box2D.min.y_val + 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12))
 
 
-                    bbs_file = os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.txt'))
+                    bbs_file = os.path.normpath(os.path.join(semantic_bb_path, str(timestamp) + "_" + str(i) + '.txt'))
                     header = "box2D.max.x_val box2D.max.y_val box2D.min.x_val box2D.min.y_val \
                             box3D.max.x_val box3D.max.y_val box3D.max.z_val \
                             box3D.min.x_val box3D.min.y_val box3D.min.z_val \
@@ -422,20 +553,38 @@ if __name__ == '__main__':
                     save_box_image = True
                     if save_box_image:
                         # airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.png')), png)
-                        cv2.imwrite(os.path.normpath(os.path.join(tmp_dir, str(3), str(timestamp) + "_" + str(i) + '.png')), png)
+                        cv2.imwrite(os.path.normpath(os.path.join(semantic_bb_path, str(timestamp) + "_" + str(i) + '.png')), png)
                     else:
                         cv2.imshow("bbox", png)
                         cv2.waitKey(int(DELAY * 300))
                         cv2.destroyAllWindows()
 
-        pose = client.simGetVehiclePose()
-        pp.pprint(pose)
+                if i == 2:
+                    im = np.fromstring(response.image_data_uint8, dtype=np.uint8) # get numpy array
+                    # im = im.reshape(response.height, response.width, 3)           # reshape array to 4 channel image
+                    im = cv2.imdecode(airsim.string_to_uint8_array(im), cv2.IMREAD_UNCHANGED)
+                    semantic_bgr = np.asarray(map_label_to_color(im[:, :, 0]))
+                    semantic_bgr = np.stack((semantic_bgr[0], semantic_bgr[1], semantic_bgr[2]), axis=2)
+                    semantic_bgr = semantic_bgr.astype(np.uint8)
+                    semantic_bgr = cv2.cvtColor(semantic_bgr , cv2.COLOR_RGB2BGR)
+                    cv2.imwrite(os.path.normpath(os.path.join(semantic_bgr_path, str(timestamp) + "_" + str(2) + '.png')),  semantic_bgr)
+
+        if print_log:
+            pose = client.simGetVehiclePose()
+            pp.pprint(pose)
+
+        index = index + 1
+        percent = (index - start_time) / duration
+        if percent - last_percent > interval:
+            last_percent = percent
+            status(40, percent, index)
 
         # print_pose(client)
-
         # time.sleep(1)
 
         line = fin.readline().strip()
+
+    status(40, 1, duration)
 
     # pp = pprint.PrettyPrinter(indent=4)
 
