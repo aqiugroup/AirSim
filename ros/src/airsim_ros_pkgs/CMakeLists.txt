@@ -96,6 +96,10 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
+message("!!!!!!!!!!!!!!!!!!!!!!!!!!catkin_INCLUDE_DIRS: ${catkin_INCLUDE_DIRS} ")
+message("!!!!!!!!!!!!!!!!!!!!!!!!!!catkin_LIBRARIES: ${catkin_LIBRARIES} ")
+message("!!!!!!!!!!!!!!!!!!!!!!!!!!OpenCV_LIBS: ${OpenCV_LIBS} ")
+
 add_library(airsim_settings_parser src/airsim_settings_parser.cpp)
 target_link_libraries(airsim_settings_parser ${catkin_LIBRARIES} AirLib)
 
