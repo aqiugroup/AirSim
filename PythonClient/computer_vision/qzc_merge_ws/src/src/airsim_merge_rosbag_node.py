@@ -113,8 +113,9 @@ OBJECT_OF_INTEREST_CLASSES_OUTDOOR = [
 ]
 
 # https://tool.lu/color/
+# rgb
 CLASS_COLORS_OUTDOOR = [
-    (153, 108, 6), # 深米黄色
+    (135, 169, 180), # 浅灰色
     (112, 105, 191), # 深紫色
     (89, 121, 72), # 深绿色
     (190, 225, 64), # 深绿色-2
@@ -122,7 +123,7 @@ CLASS_COLORS_OUTDOOR = [
     (81, 13, 36), # 深粉色
     (115, 176, 195), # 深蓝色-2
     (161, 171, 27), #深绿色-3
-    (135, 169, 180), # 浅灰色
+    (153, 108, 6), # 深米黄色
     (29, 26, 199), # 深蓝色
     (102, 16, 239), # 深紫色
     (242, 107, 146), # 老红色
@@ -302,8 +303,8 @@ class SemanticLabelWithRGBOutdoorDirMessages:
         )
 
         self.semantic_rgb_path = ""
-        save_box_image = False
-        if save_box_image:
+        save_semantic_rgb_image = False
+        if save_semantic_rgb_image:
             self.semantic_rgb_path = os.path.join(folder, "..", str(20))
             try:
                 os.makedirs(self.semantic_rgb_path)
@@ -320,32 +321,44 @@ class SemanticLabelWithRGBOutdoorDirMessages:
         return
 
     def compose_msg(self, filename, sec, nsec):
-        gray = cv2.imread(filename, 0)
-        if gray is None:
-            print(f"sec: {sec} nsec:{nsec}")
+        use_ir_image = False # !!! shoud chang with other variable
+        if use_ir_image == False:
+            img = cv2.imread(filename)
+            msg = CvBridge().cv2_to_imgmsg(img,"bgr8")
+            # msg = CvBridge().cv2_to_imgmsg(img,"rgb8")
 
-        semantic = np.asarray(self.map_label_to_color(gray))
-        semantic = np.stack((semantic[0], semantic[1], semantic[2]), axis=2)
-        semantic = semantic.astype(np.uint8)
+            msg.header.stamp.secs = sec
+            msg.header.stamp.nsecs = nsec
+            msg.header.frame_id = self.frame_id
+            return msg
+        else:
+            gray = cv2.imread(filename, 0)
+            if gray is None:
+                print(f"sec: {sec} nsec:{nsec}")
 
-        msg = CvBridge().cv2_to_imgmsg(semantic, "rgb8")
+            semantic = np.asarray(self.map_label_to_color(gray))
+            semantic = np.stack((semantic[0], semantic[1], semantic[2]), axis=2)
+            semantic = semantic.astype(np.uint8)
 
-        if self.semantic_rgb_path:
-            nsecs = round(nsec*1e-6)
-            if nsecs < 10:
-                k = '{}00{}'.format(sec,nsecs)
-            elif nsecs < 100:
-                k = '{}0{}'.format(sec,nsecs)
-            else:
-                k = '{}{}'.format(sec,nsecs)
-            semantic_bgr = cv2.cvtColor(semantic , cv2.COLOR_RGB2BGR)
-            cv2.imwrite(os.path.normpath(os.path.join(self.semantic_rgb_path, k + "_" + str(2) + '.png')),  semantic_bgr)
+            # msg = CvBridge().cv2_to_imgmsg(semantic, "bgr8")
+            msg = CvBridge().cv2_to_imgmsg(semantic, "rgb8")
 
-        msg.header.stamp.secs = sec
-        msg.header.stamp.nsecs = nsec
-        msg.header.frame_id = self.frame_id
+            if self.semantic_rgb_path:
+                nsecs = round(nsec*1e-6)
+                if nsecs < 10:
+                    k = '{}00{}'.format(sec,nsecs)
+                elif nsecs < 100:
+                    k = '{}0{}'.format(sec,nsecs)
+                else:
+                    k = '{}{}'.format(sec,nsecs)
+                semantic_bgr = cv2.cvtColor(semantic , cv2.COLOR_RGB2BGR)
+                cv2.imwrite(os.path.normpath(os.path.join(self.semantic_rgb_path, k + "_" + str(2) + '.png')),  semantic_bgr)
 
-        return msg
+            msg.header.stamp.secs = sec
+            msg.header.stamp.nsecs = nsec
+            msg.header.frame_id = self.frame_id
+
+            return msg
 
     # return None if not match, otherwise return a msg and topic name
     def check_match(self,sec,nsec):
@@ -965,7 +978,7 @@ def generate_odometry_msg(vio_pose_msg, child_frame_id, frame_id):
     return odom_local
 
 import sys
-def status(length, percent, index=0):
+def status(length, percent, index=0, remain_time=1000):
     sys.stdout.write('\x1B[2K') # Erase entire current line
     sys.stdout.write('\x1B[0E') # Move to the beginning of the current line
     progress = "Progress: ["
@@ -974,7 +987,8 @@ def status(length, percent, index=0):
             progress += '='
         else:
             progress += ' '
-    progress += "] " + str(round(percent * 100.0, 2)) + "%" + " : " + str(index)
+    remain_time_str = f'{remain_time:.2f}' # 小数点后保留两位，四舍五入
+    progress += "] " + str(round(percent * 100.0, 2)) + "%" + " : " + str(index) + " : " + remain_time_str +"h"
     # progress += "] " + str(round(percent * 100.0, 2)) + "%\n"
     sys.stdout.write(progress)
     sys.stdout.flush()
@@ -1128,68 +1142,66 @@ if __name__ == "__main__":
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
+    # data_path =  "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small"
+    data_path =  "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle"
+
+    # for convient
+    args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.5hz_2022032401.bag"
+    capture_hz = 20
+    # args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.2hz_2022032401.bag"
+    # capture_hz = 50
+    # args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.1hz_2022032401.bag"
+    # capture_hz = 100
+    for_lcd = True
+
+    # args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_10hz_2022032401.bag"
+    # for_lcd = False
+    print(f"for_lcd:{for_lcd}, hz:{capture_hz}, outbag:{args.output_rosbag_path}\n")
+
     # stereo_right_msgs = StereoImageDirMessages(
     #     "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir/0",
     #     args.right_image_topic, args.right_image_frame_id)
 
     stereo_left_msgs = StereoImageDirMessages(
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/0",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/0",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/0",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/0",
+        data_path +"/0",
         args.left_image_topic, args.left_image_frame_id)
 
     stereo_depth_msgs = StereoDepthDirMessages(
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/1",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/1",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/1",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/1",
+        data_path +"/1",
         args.left_depth_topic, args.left_depth_frame_id)
 
     # semantic_rgb_msgs = SemanticLabelWithRGBDirMessages(
     semantic_rgb_msgs = SemanticLabelDirMessages(
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/2",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/2",
+       data_path +"/2",
         args.left_semantic_topic, args.left_semantic_frame_id)
 
-    semantic_rgb_with_rgb_outdoor_msgs = SemanticLabelWithRGBOutdoorDirMessages(
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/2",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/2",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/2",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/20",
-        args.left_semantic_for_display_topic, args.left_semantic_frame_id)
+    use_ir_image = False # !!! shoud chang with other variable
+    if use_ir_image == False:
+        semantic_rgb_with_rgb_outdoor_msgs = SemanticLabelWithRGBOutdoorDirMessages(
+            data_path +"/20",
+            args.left_semantic_for_display_topic, args.left_semantic_frame_id)
+    else:
+        semantic_rgb_with_rgb_outdoor_msgs = SemanticLabelWithRGBOutdoorDirMessages(
+            data_path +"/2",
+            args.left_semantic_for_display_topic, args.left_semantic_frame_id)
 
     bb_msgs = BoundingBoxDirMessages(
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_small/3",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_ir_box/3",
-        # "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_tiny/3",
-        "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/airsim_drone_1circle/21",
+       data_path +"/21",
         args.left_perception_topic, args.left_perception_frame_id)
 
 
     tf_array_vio = transform_msg_from_txt2(args.vio_pose_csv, args.body_frame_id, args.world_frame_id)
     tf_array_idx_vio = 0
 
-    # for convient
-    # args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.5hz_2022032301.bag"
-    # capture_hz = 20
-    # args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.2hz_2022032301.bag"
-    capture_hz = 50
-    args.output_rosbag_path = "/Users/aqiu/Documents/AirSim/2022-03-07-02-02/bgr_depth_ir_3dbb_full_lcd_0.1hz_2022032301.bag"
-    # capture_hz = 100
-    for_lcd = True
-    print(f"for_lcd:{for_lcd}, hz:{capture_hz}, outbag:{args.output_rosbag_path}\n")
-
     # ---------------------------- for debug begin --------------------------------
     # cur_dir = args.vio_pose_csv[:args.vio_pose_csv.rfind(os.path.sep)] + os.path.sep
     # print(cur_dir)
     # This is for logging progress
     duration = len(tf_array_vio)
-    start_time = 0
+    start_index = 0
     interval = 10 / duration
     last_percent = 0
+    start_time = time.time()
     status(40, 0)
     # ---------------------------- for debug end --------------------------------
     skip_cnt = 0
@@ -1217,26 +1229,29 @@ if __name__ == "__main__":
                         print("not find {}.{} ".format(vio_timestamp.secs, vio_timestamp.nsecs))
 
 
-                percent = (i - start_time) / duration
+                percent = (i - start_index) / duration
                 if percent - last_percent > interval:
                     last_percent = percent
-                    status(40, percent)
+
+                    now_time = time.time()
+                    remain_time = float(now_time - start_time) * (duration-i) / (i * 3600)
+                    status(40, percent, i, remain_time)
 
             bb_msgs.save_bbs_label_id_map()
-            status(40, 1)
+            status(40, 1, duration, 0)
     else:
         with rosbag.Bag(args.output_rosbag_path, 'w') as outbag:
-            origin_start_time = 0.0
+            origin_start_index = 0.0
             origin_end_time = 0.0
             origin_duration = 0.0
             origin_len = len(tf_array_vio)
             for i, vio_pose_msg in enumerate(tf_array_vio):
                 vio_timestamp = vio_pose_msg.transforms[0].header.stamp
                 if i == 0:
-                    origin_start_time = vio_timestamp
+                    origin_start_index = vio_timestamp
                 elif i == origin_len-1:
                     origin_end_time = vio_timestamp
-            origin_duration = origin_end_time - origin_start_time
+            origin_duration = origin_end_time - origin_start_index
 
             # 第一次取偶数帧
             for i, vio_pose_msg in enumerate(tf_array_vio):
@@ -1264,13 +1279,16 @@ if __name__ == "__main__":
                         print("not find {}.{} ".format(vio_timestamp.secs, vio_timestamp.nsecs))
 
 
-                percent = (i - start_time) / duration
+                percent = (i - start_index) / duration
                 if percent - last_percent > interval:
                     last_percent = percent
-                    status(40, percent)
+
+                    now_time = time.time()
+                    remain_time = float(now_time - start_time) * (duration-i) / (i * 3600)
+                    status(40, percent, i, remain_time)
 
             # 第二次取奇数帧，但是时间戳需要偏移整个数据集长度
-            start_time = 0
+            start_index = 0
             last_percent = 0
             for i, vio_pose_msg in enumerate(tf_array_vio):
                 if i % capture_hz != capture_hz//2:
@@ -1299,14 +1317,17 @@ if __name__ == "__main__":
                         print("not find {}.{} ".format(origin_vio_timestamp.secs, origin_vio_timestamp.nsecs))
 
 
-                percent = (i - start_time) / duration
+                percent = (i - start_index) / duration
                 if percent - last_percent > interval:
                     last_percent = percent
-                    status(40, percent)
+
+                    now_time = time.time()
+                    remain_time = float(now_time - start_time) * (duration-i) / (i * 3600)
+                    status(40, percent, i, remain_time)
 
 
             bb_msgs.save_bbs_label_id_map()
-            status(40, 1)
+            status(40, 1, duration, 0)
 
 
     end = time.perf_counter()

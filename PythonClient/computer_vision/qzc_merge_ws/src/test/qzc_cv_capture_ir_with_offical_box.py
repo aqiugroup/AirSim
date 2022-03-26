@@ -85,7 +85,7 @@ REGEX_OBJECTS_OF_DETECTION_INTEREST = [
     "Building*",
     "prp_metalPillar*",
     "flg_tree*",
-    "BP_LightStudio*",
+    # "BP_LightStudio[\w]*",  # TODO:qzc, we close it, it should be "BP_LightStudio*"
 
 
     "prp_chainlinkFence*",
@@ -98,7 +98,7 @@ REGEX_OBJECTS_OF_DETECTION_INTEREST = [
     "flg_grass*",
     "prp_parkingMeter*",
     # "Flg_hedge_Short*",
-    "Flg_hedge*",
+    "Flg_hedge*",  # TODO:qzc use this is correct, but slow
     "prp_metalFence*",
     "prp_barrier_Lrg*",
     "TrashBag*",
@@ -204,7 +204,7 @@ MESH_COLS = np.array([
 
 # https://tool.lu/color/
 CLASS_COLORS_OUTDOOR = [
-    (153, 108, 6), # 深米黄色
+    (135, 169, 180), # 浅灰色
     (112, 105, 191), # 深紫色
     (89, 121, 72), # 深绿色
     (190, 225, 64), # 深绿色-2
@@ -212,7 +212,7 @@ CLASS_COLORS_OUTDOOR = [
     (81, 13, 36), # 深粉色
     (115, 176, 195), # 深蓝色-2
     (161, 171, 27), #深绿色-3
-    (135, 169, 180), # 浅灰色
+    (153, 108, 6), # 深米黄色
     (29, 26, 199), # 深蓝色
     (102, 16, 239), # 深紫色
     (242, 107, 146), # 老红色
@@ -259,7 +259,7 @@ map_label_to_color = np.vectorize(
 
 
 import sys
-def status(length, percent, index=0):
+def status(length, percent, index=0, remain_time=0):
     sys.stdout.write('\x1B[2K') # Erase entire current line
     sys.stdout.write('\x1B[0E') # Move to the beginning of the current line
     progress = "Progress: ["
@@ -268,7 +268,8 @@ def status(length, percent, index=0):
             progress += '='
         else:
             progress += ' '
-    progress += "] " + str(round(percent * 100.0, 2)) + "%" + " : " + str(index)
+    remain_time_str = f'{remain_time:.2f}' # 小数点后保留两位，四舍五入
+    progress += "] " + str(round(percent * 100.0, 2)) + "%" + " : " + str(index) + " : " + remain_time_str +"h"
     # progress += "] " + str(round(percent * 100.0, 2)) + "%\n"
     sys.stdout.write(progress)
     sys.stdout.flush()
@@ -326,10 +327,13 @@ def setup():
         msg = 'Detection: add mesh name--> %s ..' % (key)
         print(msg, end='\n')
         client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
-    key='InstancedFoliageActor*'
-    msg = 'Detection: add mesh name--> %s ..' % (key)
-    print(msg, end='\n')
-    client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
+
+    open_extral_object = True
+    if open_extral_object:
+        key='InstancedFoliageActor*'
+        msg = 'Detection: add mesh name--> %s ..' % (key)
+        print(msg, end='\n')
+        client.simAddDetectionFilterMeshName(detect_camera_name, detect_image_type, key)
     key='prp_pylon_Lrg*'
     msg = 'Detection: add mesh name--> %s ..' % (key)
     print(msg, end='\n')
@@ -380,11 +384,12 @@ if __name__ == '__main__':
     fin0.close()
     # This is for logging progress
     duration = pose_len
-    start_time = 0
     interval = 1 / duration
     last_percent = 0
+    start_time = time.time()
+    start_index = 0
     index = 0
-    status(40, 0, index)
+    status(40, 0, index, 1000)
     # ---------------------------- for debug end --------------------------------
 
     fin = open(file_path, "r")
@@ -574,17 +579,20 @@ if __name__ == '__main__':
             pp.pprint(pose)
 
         index = index + 1
-        percent = (index - start_time) / duration
+        percent = (index - start_index) / duration
         if percent - last_percent > interval:
             last_percent = percent
-            status(40, percent, index)
+
+            now_time = time.time()
+            remain_time = float(now_time - start_time) * (duration-index) / (index * 3600)
+            status(40, percent, index, remain_time)
 
         # print_pose(client)
         # time.sleep(1)
 
         line = fin.readline().strip()
 
-    status(40, 1, duration)
+    status(40, 1, duration, 0)
 
     # pp = pprint.PrettyPrinter(indent=4)
 
