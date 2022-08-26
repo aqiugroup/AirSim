@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>airsim_merge_rosbag</name>
+  <!-- <name>airsim_merge_rosbag</name> -->
+  <name>perception_msg</name>
   <version>1.0.0</version>
   <description>The airsim_merge_rosbag package</description>
 

@@ -35,8 +35,11 @@ from sensor_msgs.msg import CameraInfo
 import json
 import open3d as o3d
 from scipy.spatial.transform import Rotation
+# https://vimsky.com/examples/usage/python-scipy.spatial.transform.Rotation.html
 # from Perception.msg import *
-from airsim_merge_rosbag.msg import *
+# from airsim_merge_rosbag.msg import *
+from perception_msg.msg import *
+
 
 # we check if there is msg with same time stamp with msg in bag
 # if match we write the msg just after the msg in bag

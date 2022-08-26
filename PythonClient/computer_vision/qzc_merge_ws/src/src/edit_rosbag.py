@@ -100,6 +100,7 @@ rgb_path = extract_bag_dir + '/rgb'
 semantic_confidence_path = extract_bag_dir + '/semantic_confidence'
 semantic_labels_path = extract_bag_dir + '/semantic_labels'
 semantic_labels_rgb_path = extract_bag_dir + '/semantic_labels_rgb'
+semantic_labels_rgb_origin_path = extract_bag_dir + '/semantic_labels_rgb_origin'
 
 ## Try to remove tree; if failed show an error using try...except on screen
 try:
@@ -112,6 +113,7 @@ try:
     os.makedirs(semantic_confidence_path)
     os.makedirs(semantic_labels_path)
     os.makedirs(semantic_labels_rgb_path)
+    os.makedirs(semantic_labels_rgb_origin_path)
 except OSError:
     if not os.path.isdir(extract_bag_dir):
         raise
@@ -119,6 +121,10 @@ except OSError:
 odom_file = extract_bag_dir + '/odom.txt'
 odom_file_handle = open(odom_file, 'w')
 odom_file_handle.writelines("timestamp x y z qw qx qy qz"+"\n")
+
+id_to_ros_time_file=extract_bag_dir+"/id_to_ros_time.txt"
+id_to_ros_time_handle = open(id_to_ros_time_file, 'w')
+id_to_ros_time_handle.writelines("id timestamp"+"\n")
 
 # with open(bbs_file,'w') as f:    #设置文件对象
 #     f.writelines(header+"\n")
@@ -154,9 +160,10 @@ with rosbag.Bag(dst_dir+out_bag_name, 'w') as outbag:
     for topic, msg, t in bag_in.read_messages():
         i=i+1
         if topic == topic_odom:
-            pose ="{} {} {} {} {} {} {} {}".format(t.nsecs, msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z,
-                                                                    msg.pose.pose.orientation.w, msg.pose.pose.orientation.x, msg.pose.pose.orientation.y,
-                                                                    msg.pose.pose.orientation.z)
+            pose ="{} {} {} {} {} {} {} {}".format(msg.header.stamp.to_nsec(),
+                                                            msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z,
+                                                            msg.pose.pose.orientation.w, msg.pose.pose.orientation.x, msg.pose.pose.orientation.y,
+                                                            msg.pose.pose.orientation.z)
             odom_file_handle.write(pose+"\n")
         elif topic == topic_rgb:
             cnt_dict[1]=cnt_dict[1]+1
@@ -167,6 +174,10 @@ with rosbag.Bag(dst_dir+out_bag_name, 'w') as outbag:
             cv_image=cv_image[0:h, 0:np.int32(w/2), 0:c]
             cv_image = cv2.resize(cv_image, g_shape)
             cv2.imwrite(os.path.normpath(os.path.join(rgb_path, str(cnt_dict[1]) + '.png')), cv_image)
+
+            # write id to ros time
+            id_to_ros_time="{} {}".format(cnt_dict[1], msg.header.stamp.to_nsec())
+            id_to_ros_time_handle.writelines(id_to_ros_time+"\n")
         elif topic == topic_semantic_confidence:
             cnt_dict[2]=cnt_dict[2]+1
             cv_image = CvBridge().imgmsg_to_cv2(msg, "mono8")
@@ -177,11 +188,17 @@ with rosbag.Bag(dst_dir+out_bag_name, 'w') as outbag:
             cv_image = CvBridge().imgmsg_to_cv2(msg, "mono8")
             cv_image = cv2.resize(cv_image, g_shape)
             cv2.imwrite(os.path.normpath(os.path.join(semantic_labels_path, str(cnt_dict[3]) + '.png')), cv_image)
+
+            semantic = np.asarray(map_label_to_color(cv_image))
+            semantic = np.stack(
+                (semantic[0], semantic[1], semantic[2]), axis=2)
+            semantic = semantic.astype(np.uint8)
+            cv2.imwrite(os.path.normpath(os.path.join(semantic_labels_rgb_path, str(cnt_dict[3]) + '.png')), semantic)
         elif topic == topic_semantic_rgb:
             cnt_dict[4]=cnt_dict[4]+1
             cv_image = CvBridge().imgmsg_to_cv2(msg, "bgr8")
             cv_image = cv2.resize(cv_image, g_shape)
-            cv2.imwrite(os.path.normpath(os.path.join(semantic_labels_rgb_path, str(cnt_dict[4]) + '.png')), cv_image)
+            cv2.imwrite(os.path.normpath(os.path.join(semantic_labels_rgb_origin_path, str(cnt_dict[4]) + '.png')), cv_image)
 
 
         # write image
@@ -218,5 +235,6 @@ with rosbag.Bag(dst_dir+out_bag_name, 'w') as outbag:
 status(40, 1, duration, 0)
 
 odom_file_handle.close()
+id_to_ros_time_handle.close()
 
 print("finished")
