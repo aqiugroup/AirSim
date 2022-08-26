@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(airsim_merge_rosbag)
+# project(airsim_merge_rosbag)
+project(perception_msg)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -81,7 +82,8 @@ generate_messages(
   std_msgs
   vision_msgs
   sensor_msgs
-  airsim_merge_rosbag
+#   airsim_merge_rosbag
+#   perception_msg
 )
 
 ################################################
