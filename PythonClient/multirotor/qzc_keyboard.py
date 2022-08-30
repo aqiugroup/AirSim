@@ -1,4 +1,6 @@
 # coding=utf-8
+from decimal import *
+import pprint
 import keyboard
 import airsim
 
@@ -14,76 +16,82 @@ import random
 import math
 from tf import transformations as tfs
 
+from scipy.spatial.transform import Rotation as R
+
 # Calculates Rotation Matrix given euler angles.
-def eulerAnglesToRotationMatrix(angles1) :
+
+
+def eulerAnglesToRotationMatrix(angles1):
     theta = np.zeros((3, 1), dtype=np.float64)
     theta[0] = angles1[0]*3.141592653589793/180.0
     theta[1] = angles1[1]*3.141592653589793/180.0
     theta[2] = angles1[2]*3.141592653589793/180.0
-    R_x = np.array([[1,         0,                  0                   ],
-                    [0,         math.cos(theta[0]), -math.sin(theta[0]) ],
-                    [0,         math.sin(theta[0]), math.cos(theta[0])  ]
+    R_x = np.array([[1,         0,                  0],
+                    [0,         math.cos(theta[0]), -math.sin(theta[0])],
+                    [0,         math.sin(theta[0]), math.cos(theta[0])]
                     ])
-    R_y = np.array([[math.cos(theta[1]),    0,      math.sin(theta[1])  ],
-                    [0,                     1,      0                   ],
-                    [-math.sin(theta[1]),   0,      math.cos(theta[1])  ]
+    R_y = np.array([[math.cos(theta[1]),    0,      math.sin(theta[1])],
+                    [0,                     1,      0],
+                    [-math.sin(theta[1]),   0,      math.cos(theta[1])]
                     ])
     R_z = np.array([[math.cos(theta[2]),    -math.sin(theta[2]),    0],
                     [math.sin(theta[2]),    math.cos(theta[2]),     0],
                     [0,                     0,                      1]
                     ])
-    R = np.dot(R_z, np.dot( R_y, R_x ))
-    sy = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    R = np.dot(R_z, np.dot(R_y, R_x))
+    sy = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
     singular = sy < 1e-6
-    if  not singular:
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
+    if not singular:
+        x = math.atan2(R[2, 1], R[2, 2])
+        y = math.atan2(-R[2, 0], sy)
+        z = math.atan2(R[1, 0], R[0, 0])
+    else:
+        x = math.atan2(-R[1, 2], R[1, 1])
+        y = math.atan2(-R[2, 0], sy)
         z = 0
     #print('dst:', R)
     x = x*180.0/3.141592653589793
     y = y*180.0/3.141592653589793
     z = z*180.0/3.141592653589793
     rvecstmp = np.zeros((1, 1, 3), dtype=np.float64)
-    rvecs,_ = cv2.Rodrigues(R, rvecstmp)
-    #print()
-    return R,rvecs,x,y,z
+    rvecs, _ = cv2.Rodrigues(R, rvecstmp)
+    # print()
+    return R, rvecs, x, y, z
+
 
 def rotationMatrixToEulerAngles(rvecs):
     R = np.zeros((3, 3), dtype=np.float64)
     cv2.Rodrigues(rvecs, R)
-    sy = math.sqrt(R[2,1] * R[2,1] +  R[2,2] * R[2,2])
-    sz = math.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
-    print('sy=',sy, 'sz=', sz)
+    sy = math.sqrt(R[2, 1] * R[2, 1] + R[2, 2] * R[2, 2])
+    sz = math.sqrt(R[0, 0] * R[0, 0] + R[1, 0] * R[1, 0])
+    print('sy=', sy, 'sz=', sz)
     singular = sy < 1e-6
-    if  not singular:
-        x = math.atan2(R[2,1] , R[2,2])
-        y = math.atan2(-R[2,0], sy)
-        z = math.atan2(R[1,0], R[0,0])
-    else :
-        x = math.atan2(-R[1,2], R[1,1])
-        y = math.atan2(-R[2,0], sy)
+    if not singular:
+        x = math.atan2(R[2, 1], R[2, 2])
+        y = math.atan2(-R[2, 0], sy)
+        z = math.atan2(R[1, 0], R[0, 0])
+    else:
+        x = math.atan2(-R[1, 2], R[1, 1])
+        y = math.atan2(-R[2, 0], sy)
         z = 0
     #print('dst:', R)
     x = x*180.0/3.141592653589793
     y = y*180.0/3.141592653589793
     z = z*180.0/3.141592653589793
-    return x,y,z
+    return x, y, z
 
 # https://zhuanlan.zhihu.com/p/336357646
 # https://www.bilibili.com/video/BV1oa4y1v7TY?p=2
 # https://www.jianshu.com/p/5e130c04a602
 # https://zhuanlan.zhihu.com/p/85108850
-#旋转矩阵 欧拉角
+# 旋转矩阵 欧拉角
+
 
 eulerAngles = np.zeros((3, 1), dtype=np.float64)
 eulerAngles[0] = -90.0
 eulerAngles[1] = 0.0
 eulerAngles[2] = -90.0
-R,rvecstmp,x,y,z = eulerAnglesToRotationMatrix(eulerAngles)
+R, rvecstmp, x, y, z = eulerAnglesToRotationMatrix(eulerAngles)
 print('输入欧拉角：\n', eulerAngles)
 print('旋转转矩：\n', R)
 print('旋转向量：\n', rvecstmp)
@@ -91,11 +99,13 @@ print('计算后的欧拉角：\n', rotationMatrixToEulerAngles(rvecstmp))
 
 # sxyz 和 rxyz 的区别
 alpha = eulerAngles[0]*3.141592653589793/180.0
-beta  = eulerAngles[1]*3.141592653589793/180.0
+beta = eulerAngles[1]*3.141592653589793/180.0
 gamma = eulerAngles[2]*3.141592653589793/180.0
-Re = tfs.euler_matrix(alpha, beta, gamma, 'sxyz') # 外旋 xyz : 左乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+# 外旋 xyz : 左乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+Re = tfs.euler_matrix(alpha, beta, gamma, 'sxyz')
 # print("tf sxyz R: \n", Re)
-Re = tfs.euler_matrix(gamma, beta, alpha, 'rzyx') # 内旋 zyx : 右乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+# 内旋 zyx : 右乘 = Rot(z) * Rot(y) * Rot(x) = Rot(gamma) * Rot(beta) * Rot(alpha)
+Re = tfs.euler_matrix(gamma, beta, alpha, 'rzyx')
 # print("tf rzyx R: \n", Re)
 
 # alpha, beta, gamma = 0.123, -1.234, 2.345
@@ -115,21 +125,24 @@ Re = tfs.euler_matrix(gamma, beta, alpha, 'rzyx') # 内旋 zyx : 右乘 = Rot(z)
 # print(tfs.is_same_transform(R, tfs.euler_matrix(al, be, ga, axes='sxyz')))
 
 
-import pprint
-from decimal import *
+# r = R.from_quat([[0, 0, 0, 1]])
+# r.as_quat()
+
+
 def print_pose(client):
     # 1 vehicle pose
     pose = client.simGetVehiclePose()
     angles = airsim.to_eularian_angles(client.simGetVehiclePose().orientation)
-    print("vehicle pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(pose.position.x_val, pose.position.y_val, pose.position.z_val, angles[0], angles[1], angles[2]))
+    print("vehicle pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(
+        pose.position.x_val, pose.position.y_val, pose.position.z_val, angles[0], angles[1], angles[2]))
 
-     # 2 multirotor pose
+    # 2 multirotor pose
     state = client.getMultirotorState()
     # s = pprint.pformat(state)
     # print("state: %s" % s)
     angles = airsim.to_eularian_angles(state.kinematics_estimated.orientation)
     print("multirotor pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(state.kinematics_estimated.position.x_val, state.kinematics_estimated.position.y_val, state.kinematics_estimated.position.z_val,
-                                                                                                    angles[0], angles[1], angles[2]))
+                                                                                angles[0], angles[1], angles[2]))
 
     # kinematics = client.simGetGroundTruthKinematics()
     # environment = client.simGetGroundTruthEnvironment()
@@ -137,18 +150,19 @@ def print_pose(client):
     # print("Kinematics: %s\nEnvironemt %s" % (
     #     pprint.pformat(kinematics), pprint.pformat(environment)))
 
-     # 3 imu pose
+    # 3 imu pose
     pose = client.getImuData()
     print("getImuData angular_velocity: x={}, y={}, z={}  linear_acceleration: x={}, y={}, z={}".format(pose.angular_velocity.x_val, pose.angular_velocity.y_val, pose.angular_velocity.z_val,
-                                                             pose.linear_acceleration.x_val, pose.linear_acceleration.y_val, pose.linear_acceleration.z_val))
+                                                                                                        pose.linear_acceleration.x_val, pose.linear_acceleration.y_val, pose.linear_acceleration.z_val))
 
-
-     # 4 camera pose
-    pose =  client.simGetImages([airsim.ImageRequest(0, airsim.ImageType.Scene)])[0]
+    # 4 camera pose
+    pose = client.simGetImages(
+        [airsim.ImageRequest(0, airsim.ImageType.Scene)])[0]
     img_position = pose.camera_position
     img_orientation = pose.camera_orientation
     angles = airsim.to_eularian_angles(img_orientation)
-    print("camera pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(img_position.x_val, img_position.y_val, img_position.z_val, angles[0], angles[1], angles[2]))
+    print("camera pose: x={}, y={}, z={}, pitch={}, roll={}, yaw={}".format(
+        img_position.x_val, img_position.y_val, img_position.z_val, angles[0], angles[1], angles[2]))
 
     # prefix="/Users/aqiu/Documents/AirSim"
     # state = client.getMultirotorState(vehicle_name = robot_name)
@@ -168,6 +182,7 @@ def print_pose(client):
     # print("make sure we are hovering at {} meters...".format(-z))
     # client.moveToZAsync(z, 5).join()
 
+
 def callBackFunc(x):
     w = keyboard.KeyboardEvent('down', 28, 'w')             # 前进
     s = keyboard.KeyboardEvent('down', 28, 's')             # 后退
@@ -180,7 +195,6 @@ def callBackFunc(x):
     k = keyboard.KeyboardEvent('down', 28, 'k')             # 获取控制
     l = keyboard.KeyboardEvent('down', 28, 'l')             # 释放控制
     h = keyboard.KeyboardEvent('down', 28, 'h')             # 悬停
-
 
     if x.event_type == 'down' and x.name == w.name:
         # 前进
