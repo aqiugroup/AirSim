@@ -65,6 +65,7 @@ if __name__ == '__main__':
 
     pp = pprint.PrettyPrinter(indent=4)
     client = airsim.VehicleClient()
+    # client = airsim.MultirotorClient()
     client.confirmConnection()
 
     for camera_id in range(2):
@@ -91,6 +92,7 @@ if __name__ == '__main__':
     start_index = 0
     index = 0
     status(40, 0, index, 1000)
+    print("\n")
     # ---------------------------- for debug end --------------------------------
 
     df = open_txt(file_path)
@@ -106,14 +108,76 @@ if __name__ == '__main__':
     vio_py = np.array(vio_py)
     vio_pz = np.array(vio_pz)
 
-    rot_z_90 = R.from_euler('z', 135, degrees=True)
+    # rot_x_90 = R.from_euler('x', -90, degrees=True)
+    # rot_z_90 = R.from_euler('z', -90, degrees=True)
+    # print("!!!!!!!!aaaaa ", rot_z_90.as_matrix() * rot_x_90.as_matrix())
+
+    pose = client.simGetVehiclePose()
+    rot = R.from_quat([[pose.orientation.x_val, pose.orientation.y_val,
+                        pose.orientation.z_val, pose.orientation.w_val]])
+    print("init angle: ", rot.as_euler("xyz", degrees=True))
+    print("init vehicle pose1: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
+        pose.position.x_val, pose.position.y_val, pose.position.z_val))
+    camera_info = client.simGetCameraInfo(str(0))
+    print("camera   pose: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
+        pose.position.x_val, pose.position.y_val, pose.position.z_val))
+
     last_z_diff = 0
 
+    print(">>>>>>>>>>simGetGroundTruthKinematics")
+    pose = client.simGetGroundTruthKinematics()
+    p = pp.pprint(pose)
+    angles = airsim.to_eularian_angles(pose.orientation)
+
+    print(">>>>>>>>>>simGetGroundTruthEnvironment")
+    pose1 = client.simGetGroundTruthEnvironment()
+    p = pp.pprint(pose1)
+
+    print("simGetGroundTruthKinematics: x={:6.3f}, y={:6.3f}, z={:6.3f}, rpy={:6.3f}, {:6.3f},{:6.3f} qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+        pose.position.x_val, pose.position.y_val, pose.position.z_val,
+        angles[0], angles[1], angles[2],
+        pose.orientation.w_val, pose.orientation.x_val, pose.orientation.y_val, pose.orientation.z_val))
+    print("simGetGroundTruthEnvironment: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
+        pose1.position.x_val, pose1.position.y_val, pose1.position.z_val))
+
+    T_start_to_ue_offset = np.eye(4)
+    # T_start_to_ue_offset[:3, 3] = [0, 0, -3]
+    T_start_to_ue_offset[:3, 3] = [0, 2, -2]
+    # rot_z_135 = R.from_euler('z', 135, degrees=True)
+    rot_z_135 = R.from_euler('z', 40, degrees=True)
+    T_start_to_ue_offset[:3, :3] = rot_z_135.as_matrix()
+
+    # T_start_to_ue_offset[:3, 3] = [
+    #     pose1.geo_point.latitude, pose1.geo_point.longitude, -pose1.geo_point.altitude]
+    # rot_to_ue_offet = R.from_quat(
+    #     [[pose2.orientation.x_val, pose2.orientation.y_val, pose2.orientation.z_val, pose2.orientation.w_val]])
+    # T_start_to_ue_offset[:3, :3] = rot_to_ue_offet.as_matrix()
+
     rot_x_180 = R.from_euler('x', 180, degrees=True)
-    print("rot_x_180:\n", rot_x_180.as_matrix())
+    # rot_x_180 = R.from_euler('x', 0, degrees=True)
+    # print("rot_x_180:\n", rot_x_180.as_matrix())
+    T_airsim_traj = np.eye(4)
+    # T_airsim_traj[:3, 3] = [0, 1, -1]
+    # T_airsim_traj[:3, :3] = rot_x_180.as_matrix()
+
+    C = np.array([
+        [1,  0,  0,  0],
+        [0,  0, -1,  0],
+        [0,  1,  0,  0],
+        [0,  0,  0,  1]
+    ])
+    C = np.array([
+        [0,  0,  1],
+        [1,  0,  0],
+        [0,  1,  0],
+    ])
+    c_x_180 = R.from_matrix(C)
+    print("euler: ", c_x_180.as_euler("xyz", degrees=True))
 
     data_len = len(vio_qx)
     for i in range(0, data_len):
+        if i <= 100:
+            continue
         # timestamp = parts[1]  # ms
         # timestamp = float(parts[1]) / 1000.0 # s
 
@@ -121,36 +185,50 @@ if __name__ == '__main__':
         #     vio_qx[i], vio_qy[i], vio_qz[i], vio_qw[i], vio_px[i], vio_py[i], vio_pz[i]))
 
         pos_x = vio_px[i]
-        pos_y = vio_py[i]+1
-        pos_z = -vio_pz[i]-1
+        pos_y = vio_py[i]
+        pos_z = vio_pz[i]
 
-        quat_w = vio_qw[i]
         quat_x = vio_qx[i]
         quat_y = vio_qy[i]
         quat_z = vio_qz[i]
+        quat_w = vio_qw[i]
 
-        r = R.from_quat([[quat_x, quat_y, quat_z, quat_w]])
-        quat1 = (rot_z_90 * r).as_quat()[0]
-        quat_w = quat1[3]
+        rot = R.from_quat([[quat_x, quat_y, quat_z, quat_w]])
+        trans = np.array([pos_x, pos_y, pos_z]).reshape(-1, 1)
+        T_origin = np.concatenate(
+            (np.matrix(rot.as_matrix()[0]),  np.matrix(trans)), axis=1)
+        T_origin = np.concatenate(
+            (T_origin, np.matrix([[0, 0, 0, 1]])), axis=0)
+
+        T_final = T_start_to_ue_offset @ T_airsim_traj @ T_origin
+        # pos_x = T_final[0, 3]
+        pos_x = -T_final[0, 3]
+        pos_y = T_final[1, 3]
+        pos_z = T_final[2, 3]
+
+        R1 = R.from_matrix(T_final[:3, :3])
+        quat1 = R1.as_quat()
         quat_x = quat1[0]
         quat_y = quat1[1]
         quat_z = quat1[2]
+        quat_w = quat1[3]
 
         # if i == 0:
         #     pos_x1 = pos_x
         #     pos_y1 = pos_y
         #     pos_z1 = pos_z
-
         #     quat_w1 = quat_w
         #     quat_x1 = quat_x
         #     quat_y1 = quat_y
         #     quat_z1 = quat_z
         # else:
+        #     # pos_x1 -= 0.1
         #     pos_x = pos_x1
+        #     # pos_y1 -= 0.1
         #     pos_y = pos_y1
         #     # pos_z = pos_z1 - last_z_diff
+        #     pos_z1 -= 0.1
         #     pos_z = pos_z1
-
         #     quat_w = quat_w1
         #     quat_x = quat_x1
         #     quat_y = quat_y1
@@ -171,16 +249,44 @@ if __name__ == '__main__':
         print_log = True
         if print_log:
             print(">>>>>>>>>>simGetVehiclePose")
-            print("vehicle pose: xyz={:6.3f}, {:6.3f},{:6.3f}, qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
-                pos_x, pos_y, pos_z, quat_w, quat_x, quat_y, quat_z))
-            pose = client.simGetVehiclePose()
-            print("vehicle pose1: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
-                pose.position.x_val, pose.position.y_val, pose.position.z_val))
-            # p = pp.pprint(pose)
+            print("vehicle pose               : x={:6.3f}, y={:6.3f}, z={:6.3f},     i {}                    qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+                pos_x, pos_y, pos_z, i, quat_w, quat_x, quat_y, quat_z))
 
-            camera_info = client.simGetCameraInfo(str(0))
-            print("camera   pose: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
+            pose = client.simGetVehiclePose()
+            angles = airsim.to_eularian_angles(pose.orientation)
+            # p = pp.pprint(pose)
+            print("simGetVehiclePose          : x={:6.3f}, y={:6.3f}, z={:6.3f}, rpy={:6.3f}, {:6.3f},{:6.3f} qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+                pose.position.x_val, pose.position.y_val, pose.position.z_val,
+                angles[0], angles[1], angles[2],
+                pose.orientation.w_val, pose.orientation.x_val, pose.orientation.y_val, pose.orientation.z_val))
+
+            # print(">>>>>>>>>>simGetGroundTruthKinematics")
+            pose = client.simGetGroundTruthKinematics()
+            # p = pp.pprint(pose)
+            angles = airsim.to_eularian_angles(pose.orientation)
+            print("simGetGroundTruthKinematics: x={:6.3f}, y={:6.3f}, z={:6.3f}, rpy={:6.3f}, {:6.3f},{:6.3f} qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+                pose.position.x_val, pose.position.y_val, pose.position.z_val,
+                angles[0], angles[1], angles[2],
+                pose.orientation.w_val, pose.orientation.x_val, pose.orientation.y_val, pose.orientation.z_val))
+
+            # state = client.getMultirotorState()
+            # angles = airsim.to_eularian_angles(
+            #     state.kinematics_estimated.orientation)
+            # print("getMultirotorState         : x={:6.3f}, y={:6.3f}, z={:6.3f}, rpy={:6.3f}, {:6.3f},{:6.3f} qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+            #     state.kinematics_estimated.position.x_val, state.kinematics_estimated.position.y_val, state.kinematics_estimated.position.z_val,
+            #     angles[0], angles[1], angles[2],
+            #     state.kinematics_estimated.orientation.w_val, state.kinematics_estimated.orientation.x_val, state.kinematics_estimated.orientation.y_val, state.kinematics_estimated.orientation.z_val))
+
+            # print(">>>>>>>>>>simGetGroundTruthEnvironment")
+            pose = client.simGetGroundTruthEnvironment()
+            # p = pp.pprint(pose)
+            print("simGetGroundTruthEnvironment: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
                 pose.position.x_val, pose.position.y_val, pose.position.z_val))
+
+            # camera_info = client.simGetCameraInfo(str(0))
+            # print("camera   pose: x={:6.3f}, y={:6.3f}, z={:6.3f},  qwqxqyqz={:6.3f}, {:6.3f},{:6.3f},{:6.3f}".format(
+            #     camera_info.pose.position.x_val, camera_info.pose.position.y_val, camera_info.pose.position.z_val,
+            #     camera_info.pose.orientation.w_val, camera_info.pose.orientation.y_val, camera_info.pose.orientation.z_val, camera_info.pose.orientation.z_val))
             # p = pp.pprint(camera_info)
 
         responses = client.simGetImages([
@@ -206,11 +312,11 @@ if __name__ == '__main__':
         #         airsim.write_file(os.path.normpath(os.path.join(tmp_dir, str(i), str(
         #             timestamp) + "_" + str(i) + '.png')), response.image_data_uint8)
 
-        if print_log:
-            print("vehicle pose2: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
-                pose.position.x_val, pose.position.y_val, pose.position.z_val))
-            # pose = client.simGetVehiclePose()
-            # pp.pprint(pose)
+        # if print_log:
+        # print("vehicle pose2: x={:6.3f}, y={:6.3f}, z={:6.3f}".format(
+        #     pose.position.x_val, pose.position.y_val, pose.position.z_val))
+        # pose = client.simGetVehiclePose()
+        # pp.pprint(pose)
 
         index = index + 1
         percent = (index - start_index) / duration

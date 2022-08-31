@@ -218,7 +218,8 @@ def print_pose(client):
     # 2 multirotor pose
     print(">>>>>>>>>>getMultirotorState")
     state = client.getMultirotorState()
-    p = pp.pformat(state)
+    p = pp.pprint(state)
+    # p = pp.pformat(state)
     # print("getMultirotorState: %s" % p)
     # print("multirotor pose: x={}, y={}, z={}".format(state.kinematics_estimated.position.x_val, state.kinematics_estimated.position.y_val, state.kinematics_estimated.position.z_val))
     # angles = airsim.to_eularian_angles(state.kinematics_estimated.orientation)

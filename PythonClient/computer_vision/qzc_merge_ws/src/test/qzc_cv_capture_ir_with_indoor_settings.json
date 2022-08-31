@@ -1,46 +1,146 @@
 {
-  "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
-  "SettingsVersion": 1.2,
-  "SimMode": "Multirotor",
-  "ViewMode": "NoDisplay",
-  "PhysicsEngineName": "ExternalPhysicsEngine",
-  "ClockType": "SteppableClock",
-  "ClockSpeed": 0.3,
-  "Wind": { "X": 0, "Y": 0, "Z": 0 },
-  "Vehicles": {
-    "SimpleFlight": {
-      "VehicleType": "SimpleFlight",
-      "DefaultVehicleState": "Armed",
-      "AutoCreate": true,
-      "PawnPath": "",
-      "EnableCollisionPassthrogh": false,
-      "EnableCollisions": true,
-      "AllowAPIAlways": true,
-      "EnableTrace": false,
-      "Sensors": {
-        "imu_1": {
-          "SensorType": 2,
-          "Enabled": true,
-          "AngularRandomWalk": 0.3,
-          "GyroBiasStabilityTau": 500,
-          "GyroBiasStability": 4.6,
-          "VelocityRandomWalk": 0.24,
-          "AccelBiasStabilityTau": 800,
-          "AccelBiasStability": 36
+    "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+    "SettingsVersion": 1.2,
+    "SimMode": "Multirotor",
+    "ViewMode": "Fpv",
+    "PhysicsEngineName": "ExternalPhysicsEngine",
+    "ClockSpeed": 0.3,
+    "Wind": {
+        "X": 0,
+        "Y": 0,
+        "Z": 0
+    },
+    "CameraDefaults": {
+        "CaptureSettings": [
+            {
+                "ImageType": 1,
+                "Width": 960,
+                "Height": 540,
+                "FOV_Degrees": 90
+            },
+            {
+                "ImageType": 2,
+                "Width": 960,
+                "Height": 540,
+                "FOV_Degrees": 90
+            },
+            {
+                "ImageType": 5,
+                "Width": 960,
+                "Height": 540,
+                "FOV_Degrees": 90
+            },
+            {
+                "ImageType": 7,
+                "Width": 960,
+                "Height": 540,
+                "FOV_Degrees": 90
+            }
+        ]
+    },
+    "Vehicles": {
+        "SimpleFlight": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "PawnPath": "",
+            "EnableCollisionPassthrogh": false,
+            "EnableCollisions": true,
+            "AllowAPIAlways": true,
+            "EnableTrace": true,
+            "Cameras": {
+                "down_center_custom": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 960,
+                            "Height": 540,
+                            "FOV_Degrees": 90,
+                            "AutoExposureSpeed": 100,
+                            "AutoExposureBias": 0,
+                            "AutoExposureMaxBrightness": 1,
+                            "AutoExposureMinBrightness": 1,
+                            "MotionBlurAmount": 0,
+                            "TargetGamma": 1.5
+                        }
+                    ],
+                    "X": 0.46,
+                    "Y": 0.0,
+                    "Z": 0.0,
+                    "Roll": 0.0,
+                    "Pitch": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "imu_1": {
+                    "SensorType": 2,
+                    "Enabled": true,
+                    "AngularRandomWalk": 0.3,
+                    "GyroBiasStabilityTau": 500,
+                    "GyroBiasStability": 4.6,
+                    "VelocityRandomWalk": 0.24,
+                    "AccelBiasStabilityTau": 800,
+                    "AccelBiasStability": 36
+                }
+            },
+            "X": 0,
+            "Y": 0,
+            "Z": 0,
+            "Roll": 0,
+            "Pitch": 0,
+            "Yaw": 0
         }
-      },
-    "X": 0, "Y": 0, "Z": 0,
-    "Pitch": 0, "Roll": 0, "Yaw": 0
-    }
-  },
-  "Recording": {
-    "RecordInterval": 0.1,
-    "RecordOnMove": false,
-    "Folder": "",
-    "Enabled": false,
-    "Cameras": [
-        { "CameraName": "front_center", "ImageType": 0, "PixelsAsFloat": false, "Compress": true },
-        { "CameraName": "front_center", "ImageType": 5, "PixelsAsFloat": false, "Compress": true }
+    },
+    "OriginGeopoint": {
+        "Latitude": 0,
+        "Longitude": 0,
+        "Altitude": 0
+    },
+    "Recording": {
+        "RecordInterval": 0.1,
+        "RecordOnMove": false,
+        "Folder": "",
+        "Enabled": false,
+        "Cameras": [
+            {
+                "CameraName": "front_center",
+                "ImageType": 0,
+                "PixelsAsFloat": false,
+                "Compress": true
+            },
+            {
+                "CameraName": "front_center",
+                "ImageType": 5,
+                "PixelsAsFloat": false,
+                "Compress": true
+            }
+        ]
+    },
+    "SubWindows": [
+        {
+            "WindowID": 0,
+            "CameraName": "down_center_custom",
+            "ImageType": 0,
+            "VehicleName": "",
+            "Visible": false,
+            "External": false
+        },
+        {
+            "WindowID": 1,
+            "CameraName": "0",
+            "ImageType": 5,
+            "VehicleName": "",
+            "Visible": false,
+            "External": false
+        },
+        {
+            "WindowID": 2,
+            "CameraName": "0",
+            "ImageType": 0,
+            "VehicleName": "",
+            "Visible": false,
+            "External": false
+        }
     ]
-  }
 }
